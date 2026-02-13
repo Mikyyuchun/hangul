@@ -338,7 +338,7 @@ const App: React.FC = () => {
 
       <footer className="w-full max-w-5xl mt-16 mb-12 text-center text-[#8c7a6b] border-t border-[#dcd3c1] pt-8">
         <p className="serif text-lg font-bold text-[#5a4b41] mb-2">AI 한글 성명학 연구소 (AI KOREAN NAME RESEARCH)</p>
-        <p className="text-xs opacity-70">본 분석 시스템은 전통 성명학 이론과 현대 AI 기술을 융합하여 제공되는 감명 서비스입니다. 모든 풀이는 인생의 참고 자료로 활용하시기 바랍니다.</p>
+        <p className="text-xs opacity-70">본 분석 시스템은 한글 성명학 이론과 현대 AI 기술을 융합하여 제공되는 감명 서비스입니다. 모든 풀이는 인생의 참고 자료로 활용하시기 바랍니다.</p>
       </footer>
     </div>
   );
