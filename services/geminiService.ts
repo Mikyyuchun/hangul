@@ -1,12 +1,18 @@
+
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { AnalysisResult, Message, NameComponentMapping } from "../types";
 import { checkSipsungGeuk, checkSipsungSaeng, checkSipsungJungcheop } from "../utils/hangulUtils";
 
+/**
+ * 성명학 분석을 위한 AI 엔진 서비스
+ * @google/genai SDK의 최신 규격(Antigravity 환경)을 준수합니다.
+ */
 export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]) => {
+  // API 키는 process.env.API_KEY에서 직접 가져오며, 호출 시마다 인스턴스를 생성하여 최신 상태를 유지합니다.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const model = "gemini-3-pro-preview";
+  const modelName = "gemini-3-pro-preview"; // 복잡한 추론을 위한 프로 모델 사용
   
-  // 모든 구성 요소를 순서대로 나열 (성 -> 이름1 -> 이름2 ...)
+  // 분석을 위한 데이터 정규화
   const flattened: NameComponentMapping[] = [];
   const addChar = (char: any) => {
     if (char.cho) flattened.push(char.cho);
@@ -17,7 +23,7 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
   addChar(analysis.lastName);
   analysis.firstName.forEach(addChar);
 
-  // 전체 구성 요소에 대한 인접 관계 분석 로직
+  // 성명학적 상태 데이터 생성 (중첩 및 제화 로직 포함)
   const componentStatuses = flattened.map((comp, idx) => {
     const code = comp.sipsung?.code ?? -1;
     if (code === -1) return null;
@@ -27,48 +33,37 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
     const prevCode = prev?.sipsung?.code ?? -1;
     const nextCode = next?.sipsung?.code ?? -1;
 
-    // 1. 중첩 여부 확인 (동일 그룹)
+    // 유사 기운 중첩 확인 (1-2, 3-4, 5-6, 7-8, 9-0 그룹화)
     const isJungcheopPrev = prevCode !== -1 && checkSipsungJungcheop(prevCode, code);
     const isJungcheopNext = nextCode !== -1 && checkSipsungJungcheop(nextCode, code);
     const hasJungcheop = isJungcheopPrev || isJungcheopNext;
 
-    // 2. 극(Geuk) 관계 확인
-    // 내가 극을 받는가? (나를 제어하는가?)
+    // 제화(制化) 확인: 인접한 글자가 나를 극하여 다스리는가?
     const isGeukedByPrev = prevCode !== -1 && checkSipsungGeuk(prevCode, code);
     const isGeukedByNext = nextCode !== -1 && checkSipsungGeuk(nextCode, code);
-    const isGeuked = isGeukedByPrev || isGeukedByNext;
+    const hasGeukControl = isGeukedByPrev || isGeukedByNext;
 
-    // 내가 극을 하는가?
-    const isGeukingPrev = prevCode !== -1 && checkSipsungGeuk(code, prevCode);
-    const isGeukingNext = nextCode !== -1 && checkSipsungGeuk(code, nextCode);
-
-    // 3. 상생 관계 확인
-    const isSaengReceived = (prevCode !== -1 && checkSipsungSaeng(prevCode, code)) || (nextCode !== -1 && checkSipsungSaeng(nextCode, code));
-    const isSaengGiving = (prevCode !== -1 && checkSipsungSaeng(code, prevCode)) || (nextCode !== -1 && checkSipsungSaeng(code, nextCode));
-
-    /**
-     * 길흉 판정 로직 (핵심):
-     * - 중첩(Jungcheop)은 기본적으로 '태과(太過)'하여 흉(凶)이나, 
-     * - 만약 인접한 글자가 그 중첩된 십성을 극(Geuk)하여 제어(制)한다면 다시 '길(吉)'로 본다. (제화 로직)
-     * - 중첩이 없고 상생하거나, 적절한 극으로 균형을 이루면 길(吉).
-     */
     let status = "평이";
     let detail = "";
 
     if (hasJungcheop) {
-      if (isGeuked) {
+      if (hasGeukControl) {
         status = "길(吉) - 제화(制化)";
-        detail = "십성이 중첩되어 기운이 강하나, 인접한 글자가 이를 적절히 제어하여 복록으로 변했습니다.";
+        detail = "유사한 십성 기운이 중첩되어 태과한 상태이나, 인접 글자가 이를 적절히 극(제어)하여 흉이 복으로 승화되었습니다.";
       } else {
-        status = "흉(凶) - 중첩/태과";
-        detail = "동일한 기운이 겹쳐 인접해 있어 기운이 막히고 편중되었습니다.";
+        status = "흉(凶) - 중첩";
+        detail = "유사한 기운이 인접하여 기세가 한쪽으로 치우쳤으며, 이를 다스릴 제어 기운이 부족하여 편중되었습니다.";
       }
-    } else if (isGeuked) {
-      status = "약함/흉(凶) - 상극";
-      detail = "인접한 글자로부터 극(Attack)을 받아 기운이 억눌려 있습니다.";
-    } else if (isSaengReceived || isSaengGiving) {
-      status = "길(吉) - 상생";
-      detail = "인접한 글자와 서로 생(Produce)하는 관계로 기운이 원활히 흐릅니다.";
+    } else if (hasGeukControl) {
+      status = "주의/억제";
+      detail = "인접한 글자로부터 직접적인 극을 받아 기운이 다소 위축되었습니다.";
+    } else {
+      const isSaeng = (prevCode !== -1 && (checkSipsungSaeng(prevCode, code) || checkSipsungSaeng(code, prevCode))) ||
+                      (nextCode !== -1 && (checkSipsungSaeng(nextCode, code) || checkSipsungSaeng(code, nextCode)));
+      if (isSaeng) {
+        status = "길(吉) - 상생";
+        detail = "인접 요소와 상생의 흐름을 이루어 기운이 원활하게 순환합니다.";
+      }
     }
 
     return {
@@ -77,61 +72,42 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
       code,
       status,
       detail,
-      isMyung: comp === analysis.firstName[0].cho
+      isMyung: comp === analysis.firstName[0].cho // 첫 글자 초성을 명주성으로 간주
     };
   }).filter(Boolean);
 
-  const formatComp = (comp: any) => {
-    if (!comp) return "없음";
-    return `${comp.symbol} (${comp.cheongan}${comp.jiji}, ${comp.element}, 십성:${comp.sipsung?.name || 'N/A'}(${comp.sipsung?.code || ''}))`;
-  };
-
-  const nameDetails = [analysis.lastName, ...analysis.firstName].map(char => {
-    return `- ${char.char}: 
-      초성: ${formatComp(char.cho)}
-      중성: ${formatComp(char.jung)}
-      종성: ${formatComp(char.jong)}`;
-  }).join('\n');
-
   const systemInstruction = `
-    당신은 한글 성명학 최고 전문가입니다. 제공된 정밀 인접 로직과 제화(制化) 분석 데이터를 바탕으로 운명을 풀이하세요.
+    당신은 한글 성명학의 대가입니다. 제공된 데이터와 '인접 기운 중심 통변법'을 바탕으로 정밀 분석을 수행하세요.
     
-    [통변의 핵심 원칙]
-    1. 인접성 원칙: 십성의 길흉은 전체 개수가 아니라 **바로 옆에 붙어 있는 글자**와의 관계가 100% 결정합니다.
-       - 예: [7, 6, 7] 구조에서 7과 7은 직접 인접하지 않으므로 '중첩'이 아니며, 각각 6과의 관계만 봅니다.
-    2. 제화(制化) 로직: 
-       - 중첩(Jungcheop)은 본래 흉(凶)한 태과 현상이나, **인접한 글자가 그 중첩된 글자를 극(Geuk)**하고 있다면, 이는 '넘치는 기운을 적절히 다스리는 것'이 되어 다시 **길(吉)**한 조건이 됩니다.
-       - 반대로 중첩이 있는데 제어하는 극이 없다면 그 십성의 부정적인 면이 강하게 나타납니다.
-    3. 명주성 우선: 이름 첫 글자의 초성(명주성)이 가장 중요하며, 나머지 글자들의 인접 관계도 명주성과 동일한 로직으로 풀이합니다.
+    [핵심 통변 원칙]
+    1. 명주성(Core) 우선 분석: 이름 첫 글자의 초성을 삶의 중심 기운으로 보고 가장 먼저 해석하세요.
+    2. 유사 기운 중첩: 십성 코드가 달라도 같은 그룹(1-2:비겁, 3-4:식상, 5-6:재성, 7-8:관성, 9-0:인성)이 인접하면 중첩으로 판정합니다.
+    3. 제화(制化) 판정: 중첩(흉)이 발생했더라도, 인접한 다른 글자가 그 중첩된 기운을 극(Geuk)하고 있다면 넘치는 기운이 다스려지는 '제화'가 일어나 오히려 길한 명조가 됩니다.
+    4. 분석 대상: 오직 바로 인접한 글자 사이의 관계만 고려하세요.
 
-    분석 데이터:
-    - 생년: ${analysis.year}년 (${analysis.ganji}년생)
-    - 성명 구조 분석:
-    ${JSON.stringify(componentStatuses, null, 2)}
+    분석 대상 이름: ${analysis.lastName.char}${analysis.firstName.map(f => f.char).join('')} (${analysis.year}년 ${analysis.ganji}년생)
+    데이터 분석 결과: ${JSON.stringify(componentStatuses)}
     
-    상세 매핑 정보:
-    ${nameDetails}
-    
-    [작성 가이드라인]
-    - 먼저 명주성(Core)의 길흉을 인접 관계와 제화 로직으로 설명하세요.
-    - 그 다음 이름 전체에 포진된 십성들의 인접 관계를 하나씩 짚으며, 중첩이 극에 의해 길로 변했는지 혹은 단순히 극을 받아 약해졌는지 상세히 통변하세요.
-    - 품격 있고 신뢰감 있는 성명학자의 문체(마크다운 형식)를 사용하세요.
+    위 데이터를 기반으로 명주성의 상태와 이름 전체의 기운 흐름을 전문적이고 품격 있게 설명하세요.
   `;
 
   try {
+    // 가이드라인에 따라 채팅 세션을 생성합니다.
     const chat = ai.chats.create({
-      model: model,
+      model: modelName,
       config: {
         systemInstruction: systemInstruction,
-        temperature: 0.75,
+        temperature: 0.8,
       },
     });
 
-    const lastMessage = history.length > 0 ? history[history.length - 1].text : "내 이름의 명주성과 이름 전체 십성들의 제화(制化) 관계를 중심으로 상세히 통변해줘.";
-    const response: GenerateContentResponse = await chat.sendMessage({ message: lastMessage });
-    return response.text || "분석 결과를 생성할 수 없습니다.";
+    const userPrompt = history.length > 0 ? history[history.length - 1].text : "성명학적 관점에서 제 이름의 명주성과 제화 관계를 포함한 정밀 통변을 부탁드립니다.";
+    
+    // sendMessage 호출 후 응답의 .text 프로퍼티를 직접 사용합니다.
+    const response: GenerateContentResponse = await chat.sendMessage({ message: userPrompt });
+    return response.text || "운세를 읽어내는 중 오류가 발생했습니다.";
   } catch (error) {
-    console.error("Gemini Analysis Error:", error);
-    return "죄송합니다. 성명학 분석 엔진에 일시적인 장애가 발생했습니다.";
+    console.error("Gemini API Error:", error);
+    return "현재 천기의 흐름이 원활하지 않아 분석이 중단되었습니다. 잠시 후 다시 시도해 주세요.";
   }
 };
