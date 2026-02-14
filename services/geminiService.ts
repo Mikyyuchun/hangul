@@ -1,21 +1,21 @@
 
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { AnalysisResult, Message, NameComponentMapping } from "../types";
-import { checkSipsungGeuk, checkSipsungSaeng, checkSipsungJungcheop } from "../utils/hangulUtils";
 
 /**
  * 성명학 분석을 위한 AI 엔진 서비스
  */
 export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]) => {
-  // 환경 변수에서 API 키를 가져옵니다.
+  // 환경 변수 또는 window.aistudio에서 제공하는 최신 키를 사용합니다.
   const apiKey = process.env.API_KEY;
   
   if (!apiKey || apiKey === "undefined") {
-    return "시스템 안내: API 키가 등록되지 않았습니다. Vercel 프로젝트 설정(Settings > Environment Variables)에서 'API_KEY'를 추가하고 다시 배포(Redeploy)해 주세요.";
+    return "API_KEY_MISSING";
   }
 
+  // 할당량 문제를 해결하기 위해 더 가벼운 gemini-3-flash-preview 모델을 사용합니다.
   const ai = new GoogleGenAI({ apiKey });
-  const modelName = "gemini-3-pro-preview"; 
+  const modelName = "gemini-3-flash-preview"; 
   
   const flattened: NameComponentMapping[] = [];
   const addChar = (char: any) => {
@@ -27,15 +27,12 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
   addChar(analysis.lastName);
   analysis.firstName.forEach(addChar);
 
-  // 성명 구성 데이터 기반 통변 시스템 프롬프트 구성
   const systemInstruction = `
     당신은 한글 성명학의 대가입니다. 제공된 데이터와 '인접 기운 중심 통변법'을 바탕으로 정밀 분석을 수행하세요.
-    
-    [핵심 가이드라인]
-    1. 명주성(Core) 우선 분석: 이름 첫 글자의 초성을 삶의 중심 기운으로 보고 가장 먼저 해석하세요.
-    2. 제화(制化) 판정: 중첩(흉)이 발생했더라도, 인접한 글자가 그 기운을 극(Geuk)하고 있다면 '제화'가 일어나 길한 명조가 됩니다.
-    3. 품격 있는 문체: 고전의 깊이와 현대적 해석을 조화시킨 전문적인 통변 문체를 사용하세요.
-    4. 반드시 현재의 이름 구성표 데이터를 기반으로 논리적으로 설명하세요.
+    [가이드라인]
+    1. 명주성(이름 첫 글자 초성)을 중심으로 삶의 근간을 해석하세요.
+    2. 인접한 기운 간의 상생/상극/중첩을 분석하여 '제화(制化)' 여부를 판정하세요.
+    3. 품격 있고 신뢰감 있는 문체로 답변하세요.
   `;
 
   try {
@@ -43,18 +40,28 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
       model: modelName,
       config: {
         systemInstruction: systemInstruction,
-        temperature: 0.8,
+        temperature: 0.7,
       },
     });
 
-    const userPrompt = history.length > 1 ? history[history.length - 1].text : `이름 '${analysis.lastName.char}${analysis.firstName.map(c => c.char).join('')}'(${analysis.year}년생)에 대한 종합 통변을 요청합니다.`;
+    const userPrompt = history.length > 1 
+      ? history[history.length - 1].text 
+      : `이름 '${analysis.lastName.char}${analysis.firstName.map(c => c.char).join('')}'(${analysis.year}년생)의 성명학적 분석을 시작해 주세요.`;
+
     const response: GenerateContentResponse = await chat.sendMessage({ message: userPrompt });
-    return response.text || "결과를 읽어오는 데 실패했습니다.";
+    return response.text || "분석 결과를 생성할 수 없습니다.";
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    if (error.message?.includes("API_KEY_INVALID")) {
-      return "오류: 등록된 API 키가 유효하지 않습니다. Vercel 환경 변수 설정을 다시 확인해 주세요.";
+    
+    // 할당량 초과 에러(429) 처리
+    if (error.message?.includes("429") || error.message?.includes("quota") || error.message?.includes("RESOURCE_EXHAUSTED")) {
+      return "QUOTA_EXCEEDED";
     }
+    
+    if (error.message?.includes("API_KEY_INVALID")) {
+      return "API_KEY_INVALID";
+    }
+    
     return `분석 엔진 오류: ${error.message || "잠시 후 다시 시도해 주세요."}`;
   }
 };

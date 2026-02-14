@@ -11,6 +11,7 @@ const App: React.FC = () => {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -21,12 +22,22 @@ const App: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
+  const handleOpenKeySelector = async () => {
+    if (window.aistudio && window.aistudio.openSelectKey) {
+      await window.aistudio.openSelectKey();
+      setErrorCode(null);
+      // 키 선택 후 다시 시도
+      handleAnalyze();
+    }
+  };
+
   const handleAnalyze = async () => {
     if (!lastNameInput || !firstNameInput) {
       alert('성명 정보를 모두 입력해 주세요.');
       return;
     }
 
+    setErrorCode(null);
     const { gan, ji } = getYearGanjiParts(year);
     const ganji = gan + ji;
     const lastName = decomposeAndMap(lastNameInput.charAt(0), gan);
@@ -36,11 +47,16 @@ const App: React.FC = () => {
     setAnalysis(result);
     
     const initialPrompt = `저의 이름 '${lastNameInput}${firstNameInput}'(${year}년생)에 대해 명주성 중심의 정밀 분석을 시작해 주십시오.`;
-    const initialMessages: Message[] = [{ role: 'user', text: initialPrompt }];
-    setMessages(initialMessages);
+    setMessages([{ role: 'user', text: initialPrompt }]);
     
     setIsLoading(true);
-    const responseText = await getAIAnalysis(result, initialMessages);
+    const responseText = await getAIAnalysis(result, [{ role: 'user', text: initialPrompt }]);
+    
+    if (["QUOTA_EXCEEDED", "API_KEY_MISSING", "API_KEY_INVALID"].includes(responseText)) {
+      setErrorCode(responseText);
+      setIsLoading(false);
+      return;
+    }
     
     setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     setIsLoading(false);
@@ -58,6 +74,13 @@ const App: React.FC = () => {
     
     setIsLoading(true);
     const responseText = await getAIAnalysis(analysis, newMessages);
+
+    if (["QUOTA_EXCEEDED", "API_KEY_MISSING", "API_KEY_INVALID"].includes(responseText)) {
+      setErrorCode(responseText);
+      setIsLoading(false);
+      return;
+    }
+
     setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     setIsLoading(false);
   };
@@ -114,6 +137,24 @@ const App: React.FC = () => {
         <div className="w-24 h-1 bg-[#5a4b41] mx-auto mt-6"></div>
       </header>
 
+      {errorCode && (
+        <div className="w-full max-w-5xl mb-8 p-6 bg-red-50 border border-red-200 rounded-sm flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm animate-fadeIn">
+          <div className="flex items-center gap-4 text-left">
+            <span className="text-3xl">⚠️</span>
+            <div>
+              <p className="text-red-800 font-black text-lg serif">현재 서비스 이용량이 많아 할당량이 초과되었습니다.</p>
+              <p className="text-red-700 text-sm">잠시 후 다시 시도하시거나, 개인 API 키를 사용하여 즉시 분석을 재개할 수 있습니다.</p>
+            </div>
+          </div>
+          <button 
+            onClick={handleOpenKeySelector}
+            className="bg-red-600 text-white px-8 py-3 rounded-sm font-bold text-sm hover:bg-red-700 transition-all shadow-lg shrink-0 serif tracking-widest"
+          >
+            개인 API 키 사용하기
+          </button>
+        </div>
+      )}
+
       <section className="w-full max-w-5xl bg-white p-6 md:p-10 shadow-xl rounded-sm border border-[#dcd3c1] mb-10 relative">
         <div className="absolute top-0 left-0 w-1.5 h-full bg-[#5a4b41]"></div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end">
@@ -160,7 +201,7 @@ const App: React.FC = () => {
                 <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
                 <span>AI 運命 鑑定室</span>
               </div>
-              <span className="text-[10px] opacity-60 tracking-widest">GEMINI 3 PRO ENGINE</span>
+              <span className="text-[10px] opacity-60 tracking-widest">GEMINI 3 FLASH ENGINE</span>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#fcfbf7]">
               {messages.map((msg, idx) => (
@@ -188,14 +229,14 @@ const App: React.FC = () => {
               <input 
                 name="message" 
                 type="text" 
-                placeholder="분석 결과에 대해 질문해 보세요..."
-                disabled={isLoading}
+                placeholder={errorCode ? "위의 에러를 먼저 확인해 주세요." : "분석 결과에 대해 질문해 보세요..."}
+                disabled={isLoading || !!errorCode}
                 className="flex-1 p-3 rounded-sm border border-[#dcd3c1] focus:outline-none focus:border-[#5a4b41] bg-white text-sm" 
                 autoComplete="off"
               />
               <button 
                 type="submit" 
-                disabled={isLoading}
+                disabled={isLoading || !!errorCode}
                 className="bg-[#5a4b41] text-white px-8 py-3 rounded-sm font-bold text-sm hover:bg-[#4a3b31] transition-all serif disabled:opacity-50"
               >
                 質疑 (Ask)
