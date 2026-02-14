@@ -5,14 +5,18 @@ import { checkSipsungGeuk, checkSipsungSaeng, checkSipsungJungcheop } from "../u
 
 /**
  * 성명학 분석을 위한 AI 엔진 서비스
- * @google/genai SDK의 최신 규격(Antigravity 환경)을 준수합니다.
  */
 export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]) => {
-  // API 키는 process.env.API_KEY에서 직접 가져오며, 호출 시마다 인스턴스를 생성하여 최신 상태를 유지합니다.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const modelName = "gemini-3-pro-preview"; // 복잡한 추론을 위한 프로 모델 사용
+  // 브라우저 환경에서 API_KEY를 안전하게 가져옵니다.
+  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : '';
   
-  // 분석을 위한 데이터 정규화
+  if (!apiKey) {
+    return "시스템 설정 오류: API 키가 누락되었습니다. Vercel 환경 변수 설정을 확인해 주세요.";
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  const modelName = "gemini-3-pro-preview"; 
+  
   const flattened: NameComponentMapping[] = [];
   const addChar = (char: any) => {
     if (char.cho) flattened.push(char.cho);
@@ -23,7 +27,6 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
   addChar(analysis.lastName);
   analysis.firstName.forEach(addChar);
 
-  // 성명학적 상태 데이터 생성 (중첩 및 제화 로직 포함)
   const componentStatuses = flattened.map((comp, idx) => {
     const code = comp.sipsung?.code ?? -1;
     if (code === -1) return null;
@@ -33,12 +36,10 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
     const prevCode = prev?.sipsung?.code ?? -1;
     const nextCode = next?.sipsung?.code ?? -1;
 
-    // 유사 기운 중첩 확인 (1-2, 3-4, 5-6, 7-8, 9-0 그룹화)
     const isJungcheopPrev = prevCode !== -1 && checkSipsungJungcheop(prevCode, code);
     const isJungcheopNext = nextCode !== -1 && checkSipsungJungcheop(nextCode, code);
     const hasJungcheop = isJungcheopPrev || isJungcheopNext;
 
-    // 제화(制化) 확인: 인접한 글자가 나를 극하여 다스리는가?
     const isGeukedByPrev = prevCode !== -1 && checkSipsungGeuk(prevCode, code);
     const isGeukedByNext = nextCode !== -1 && checkSipsungGeuk(nextCode, code);
     const hasGeukControl = isGeukedByPrev || isGeukedByNext;
@@ -72,7 +73,7 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
       code,
       status,
       detail,
-      isMyung: comp === analysis.firstName[0].cho // 첫 글자 초성을 명주성으로 간주
+      isMyung: comp === analysis.firstName[0].cho
     };
   }).filter(Boolean);
 
@@ -92,7 +93,6 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
   `;
 
   try {
-    // 가이드라인에 따라 채팅 세션을 생성합니다.
     const chat = ai.chats.create({
       model: modelName,
       config: {
@@ -103,11 +103,10 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
 
     const userPrompt = history.length > 0 ? history[history.length - 1].text : "성명학적 관점에서 제 이름의 명주성과 제화 관계를 포함한 정밀 통변을 부탁드립니다.";
     
-    // sendMessage 호출 후 응답의 .text 프로퍼티를 직접 사용합니다.
     const response: GenerateContentResponse = await chat.sendMessage({ message: userPrompt });
     return response.text || "운세를 읽어내는 중 오류가 발생했습니다.";
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "현재 천기의 흐름이 원활하지 않아 분석이 중단되었습니다. 잠시 후 다시 시도해 주세요.";
+    return "현재 서비스 이용자가 많아 분석이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.";
   }
 };

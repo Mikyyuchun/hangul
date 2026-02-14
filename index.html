@@ -33,15 +33,19 @@
 <script type="importmap">
 {
   "imports": {
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.4",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "@google/genai": "https://esm.sh/@google/genai@^1.41.0"
+    "react": "https://esm.sh/react@^19.2.4"
   }
 }
 </script>
 </head>
 <body>
     <div id="root"></div>
+    <!-- Vercel/Vite 환경에서 진입점을 명시합니다 -->
+    <script type="module" src="/index.tsx"></script>
 </body>
 </html>
