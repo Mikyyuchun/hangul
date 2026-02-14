@@ -12,6 +12,15 @@ const SIPSUNG_NAMES: Record<number, string> = {
   1: '비견', 2: '겁재', 3: '식신', 4: '상관', 5: '편재', 6: '정재', 7: '편관', 8: '정관', 9: '편인', 0: '정인'
 };
 
+const getGroupName = (code: number): string => {
+  if (code === 1 || code === 2) return '비겁';
+  if (code === 3 || code === 4) return '식상';
+  if (code === 5 || code === 6) return '재성';
+  if (code === 7 || code === 8) return '관성';
+  if (code === 9 || code === 0) return '인성';
+  return '';
+};
+
 const getGanjiMapping = (symbol: string): { cheongan: string; jiji: string; element: FiveElements } => {
   if (['ㄱ'].includes(symbol)) return { cheongan: '갑', jiji: '인', element: FiveElements.WOOD };
   if (['ㅋ', 'ㄲ'].includes(symbol)) return { cheongan: '을', jiji: '묘', element: FiveElements.WOOD };
@@ -39,27 +48,28 @@ const getGanjiMapping = (symbol: string): { cheongan: string; jiji: string; elem
 };
 
 const SIPSUNG_MATRIX = [
-  [1, 2, 3, 4, 5, 6, 7, 8, 9, 0],
-  [2, 1, 4, 3, 6, 5, 8, 7, 0, 9],
-  [9, 0, 1, 2, 3, 4, 5, 6, 7, 8],
-  [0, 9, 2, 1, 4, 3, 6, 5, 8, 7],
-  [7, 8, 9, 0, 1, 2, 3, 4, 5, 6],
-  [8, 7, 0, 9, 2, 1, 4, 3, 6, 5],
-  [5, 6, 7, 8, 9, 0, 1, 2, 3, 4],
-  [6, 5, 8, 7, 0, 9, 2, 1, 4, 3],
-  [3, 4, 5, 6, 7, 8, 9, 0, 1, 2],
-  [4, 3, 6, 5, 8, 7, 0, 9, 2, 1],
+  [1, 2, 3, 4, 5, 6, 7, 8, 9, 0], 
+  [2, 1, 4, 3, 6, 5, 8, 7, 0, 9], 
+  [9, 0, 1, 2, 3, 4, 5, 6, 7, 8], 
+  [0, 9, 2, 1, 4, 3, 6, 5, 8, 7], 
+  [7, 8, 9, 0, 1, 2, 3, 4, 5, 6], 
+  [8, 7, 0, 9, 2, 1, 4, 3, 6, 5], 
+  [5, 6, 7, 8, 9, 0, 1, 2, 3, 4], 
+  [6, 5, 8, 7, 0, 9, 2, 1, 4, 3], 
+  [3, 4, 5, 6, 7, 8, 9, 0, 1, 2], 
+  [4, 3, 6, 5, 8, 7, 0, 9, 2, 1], 
 ];
 
 const calculateSipsung = (nameGan: string, yearGan: string): SipsungInfo | null => {
   const nameIdx = CHEONGAN.indexOf(nameGan);
   const yearIdx = CHEONGAN.indexOf(yearGan);
   if (nameIdx === -1 || yearIdx === -1) return null;
+  
   const code = SIPSUNG_MATRIX[nameIdx][yearIdx];
-  return { code, name: SIPSUNG_NAMES[code] };
+  return { code, name: SIPSUNG_NAMES[code], groupName: getGroupName(code) };
 };
 
-export const getSipsungGroup = (code: number): number => {
+export const getSipsungGroupCode = (code: number): number => {
   if (code === 1 || code === 2) return 1;
   if (code === 3 || code === 4) return 3;
   if (code === 5 || code === 6) return 5;
@@ -69,8 +79,8 @@ export const getSipsungGroup = (code: number): number => {
 };
 
 export const checkSipsungSaeng = (a: number, b: number): boolean => {
-  const gA = getSipsungGroup(a);
-  const gB = getSipsungGroup(b);
+  const gA = getSipsungGroupCode(a);
+  const gB = getSipsungGroupCode(b);
   if (gA === 1 && gB === 3) return true;
   if (gA === 3 && gB === 5) return true;
   if (gA === 5 && gB === 7) return true;
@@ -80,8 +90,8 @@ export const checkSipsungSaeng = (a: number, b: number): boolean => {
 };
 
 export const checkSipsungGeuk = (a: number, b: number): boolean => {
-  const gA = getSipsungGroup(a);
-  const gB = getSipsungGroup(b);
+  const gA = getSipsungGroupCode(a);
+  const gB = getSipsungGroupCode(b);
   if (gA === 1 && gB === 5) return true;
   if (gA === 3 && gB === 7) return true;
   if (gA === 5 && gB === 9) return true;
@@ -91,8 +101,8 @@ export const checkSipsungGeuk = (a: number, b: number): boolean => {
 };
 
 export const checkSipsungJungcheop = (a: number, b: number): boolean => {
-  const gA = getSipsungGroup(a);
-  const gB = getSipsungGroup(b);
+  const gA = getSipsungGroupCode(a);
+  const gB = getSipsungGroupCode(b);
   return gA === gB && gA !== -1;
 };
 
@@ -107,6 +117,10 @@ export const decomposeAndMap = (char: string, yearGan: string): any => {
     choSym = CHO_SYMBOLS[choIdx];
     jungSym = JUNG_SYMBOLS[jungIdx];
     jongSym = JONG_SYMBOLS[jongIdx];
+  } else {
+    choSym = char;
+    jungSym = '';
+    jongSym = '';
   }
 
   const mapComponent = (sym: string): NameComponentMapping => {

@@ -1,3 +1,4 @@
+
 # Logs
 logs
 *.log
@@ -7,7 +8,12 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+.pnp
+.pnp.js
+
+# Build Output
 dist
 dist-ssr
 *.local
@@ -18,7 +24,11 @@ dist-ssr
 .idea
 .DS_Store
 *.suo
-*.ntvs*
+*.ntvs
 *.njsproj
 *.sln
 *.sw?
+
+# Environment Variables
+.env
+.env.*

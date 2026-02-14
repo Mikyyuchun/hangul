@@ -11,6 +11,7 @@ export enum FiveElements {
 export interface SipsungInfo {
   code: number;
   name: string;
+  groupName: string; // 추가: 비겁, 식상 등
 }
 
 export interface NameComponentMapping {
