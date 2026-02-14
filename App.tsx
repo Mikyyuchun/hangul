@@ -11,21 +11,7 @@ const App: React.FC = () => {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasKey, setHasKey] = useState<boolean | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const checkApiKey = async () => {
-      if (window.aistudio && window.aistudio.hasSelectedApiKey) {
-        const selected = await window.aistudio.hasSelectedApiKey();
-        setHasKey(selected);
-      } else {
-        // 환경 변수가 있으면 키가 있는 것으로 간주
-        setHasKey(!!process.env.API_KEY && process.env.API_KEY !== "undefined");
-      }
-    };
-    checkApiKey();
-  }, []);
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -34,18 +20,6 @@ const App: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  const handleOpenKeySelector = async () => {
-    if (window.aistudio && window.aistudio.openSelectKey) {
-      await window.aistudio.openSelectKey();
-      setHasKey(true); // 레이스 컨디션 방지를 위해 즉시 true로 가정
-      if (lastNameInput && firstNameInput) {
-        handleAnalyze();
-      }
-    } else {
-      alert("이 환경에서는 API 키 선택 도구를 사용할 수 없습니다.");
-    }
-  };
 
   const handleAnalyze = async () => {
     if (!lastNameInput || !firstNameInput) {
@@ -67,10 +41,6 @@ const App: React.FC = () => {
     
     setIsLoading(true);
     const responseText = await getAIAnalysis(result, initialMessages);
-    
-    if (responseText.includes("API 키가 등록되지 않았습니다")) {
-      setHasKey(false);
-    }
     
     setMessages(prev => [...prev, { role: 'model', text: responseText }]);
     setIsLoading(false);
@@ -138,58 +108,11 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 md:p-8 bg-[#fcfbf7]">
-      {/* 상단 툴바 및 API 설정 메뉴 */}
-      <nav className="w-full max-w-5xl flex justify-between items-center mb-8 border-b border-[#dcd3c1] pb-4">
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${hasKey ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`}></div>
-          <span className="text-[10px] font-bold text-[#8c7a6b] uppercase tracking-wider">
-            API Status: {hasKey ? 'Active' : 'Key Required'}
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <a 
-            href="https://ai.google.dev/gemini-api/docs/billing" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-[10px] text-[#8c7a6b] hover:text-[#5a4b41] underline underline-offset-2 transition-colors"
-          >
-            Billing Guide
-          </a>
-          <button 
-            onClick={handleOpenKeySelector}
-            className="flex items-center gap-2 bg-white border border-[#5a4b41] px-3 py-1.5 rounded-sm hover:bg-[#5a4b41] hover:text-white transition-all text-[11px] font-bold text-[#5a4b41]"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-            </svg>
-            API 설정
-          </button>
-        </div>
-      </nav>
-
-      <header className="w-full max-w-5xl text-center mb-10">
+      <header className="w-full max-w-5xl text-center mb-10 mt-8">
         <h1 className="serif text-4xl md:text-5xl font-black text-[#5a4b41] mb-2 tracking-tighter">AI 韓字 姓名學 硏究所</h1>
         <p className="text-[#8c7a6b] font-medium tracking-[0.2em] uppercase text-xs">Premium Destiny Analysis System</p>
         <div className="w-24 h-1 bg-[#5a4b41] mx-auto mt-6"></div>
       </header>
-
-      {hasKey === false && (
-        <div className="w-full max-w-5xl mb-6 p-4 bg-amber-50 border border-amber-200 rounded-sm flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm animate-fadeIn">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🔑</span>
-            <div className="text-left">
-              <p className="text-amber-800 text-sm font-bold">상담 기능을 위해 API 키를 선택해 주세요.</p>
-              <p className="text-amber-700 text-xs">구글 유료 프로젝트의 키가 필요합니다. (결제 카드 등록 필수)</p>
-            </div>
-          </div>
-          <button 
-            onClick={handleOpenKeySelector}
-            className="bg-amber-600 text-white px-6 py-2 rounded-sm font-bold text-sm hover:bg-amber-700 transition-all shadow-md shrink-0"
-          >
-            지금 키 선택하기
-          </button>
-        </div>
-      )}
 
       <section className="w-full max-w-5xl bg-white p-6 md:p-10 shadow-xl rounded-sm border border-[#dcd3c1] mb-10 relative">
         <div className="absolute top-0 left-0 w-1.5 h-full bg-[#5a4b41]"></div>
@@ -265,14 +188,14 @@ const App: React.FC = () => {
               <input 
                 name="message" 
                 type="text" 
-                placeholder={hasKey === false ? "상단에서 API 키를 설정해 주세요." : "분석 결과에 대해 질문해 보세요..."}
-                disabled={hasKey === false || isLoading}
+                placeholder="분석 결과에 대해 질문해 보세요..."
+                disabled={isLoading}
                 className="flex-1 p-3 rounded-sm border border-[#dcd3c1] focus:outline-none focus:border-[#5a4b41] bg-white text-sm" 
                 autoComplete="off"
               />
               <button 
                 type="submit" 
-                disabled={hasKey === false || isLoading}
+                disabled={isLoading}
                 className="bg-[#5a4b41] text-white px-8 py-3 rounded-sm font-bold text-sm hover:bg-[#4a3b31] transition-all serif disabled:opacity-50"
               >
                 質疑 (Ask)

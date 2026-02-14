@@ -7,14 +7,13 @@ import { checkSipsungGeuk, checkSipsungSaeng, checkSipsungJungcheop } from "../u
  * 성명학 분석을 위한 AI 엔진 서비스
  */
 export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]) => {
-  // 최신 키를 가져오기 위해 호출 시점에 process.env.API_KEY 참조
+  // 환경 변수에서 API 키를 가져옵니다.
   const apiKey = process.env.API_KEY;
   
   if (!apiKey || apiKey === "undefined") {
-    return "시스템 안내: API 키가 등록되지 않았습니다. 상단 메뉴의 'API 설정' 버튼을 눌러 본인의 Gemini 키를 선택해 주시거나, 결제 문서(Billing Guide)를 확인해 주세요.";
+    return "시스템 안내: API 키가 등록되지 않았습니다. Vercel 프로젝트 설정(Settings > Environment Variables)에서 'API_KEY'를 추가하고 다시 배포(Redeploy)해 주세요.";
   }
 
-  // 매 호출마다 새로운 인스턴스를 생성하여 주입된 키가 반영되도록 함
   const ai = new GoogleGenAI({ apiKey });
   const modelName = "gemini-3-pro-preview"; 
   
@@ -53,8 +52,8 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
     return response.text || "결과를 읽어오는 데 실패했습니다.";
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    if (error.message?.includes("entity was not found") || error.message?.includes("API_KEY_INVALID")) {
-      return "오류: 유효한 API 키가 아니거나 프로젝트 설정에 문제가 있습니다. 상단 'API 설정' 메뉴를 통해 키를 다시 선택해 주세요.";
+    if (error.message?.includes("API_KEY_INVALID")) {
+      return "오류: 등록된 API 키가 유효하지 않습니다. Vercel 환경 변수 설정을 다시 확인해 주세요.";
     }
     return `분석 엔진 오류: ${error.message || "잠시 후 다시 시도해 주세요."}`;
   }
