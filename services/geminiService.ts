@@ -1,9 +1,9 @@
 
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { AnalysisResult, Message } from "../types";
+import { AnalysisResult, Message, NameComponentMapping } from "../types";
 
 /**
- * AI 성명학 통변 서비스 (고정 목차 및 고급 통변 스킬 적용)
+ * AI 성명학 통변 서비스 (십성 생극제화 로직 적용, 전문 용어 미노출)
  */
 export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]) => {
   const apiKey = process.env.API_KEY;
@@ -15,45 +15,86 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
   const ai = new GoogleGenAI({ apiKey });
   const modelName = "gemini-3-pro-preview"; 
   
-  // 명주성 정의: 이름 첫 글자의 '초성(자음)'
+  // 명주성 정의 (내부 로직용)
   const mainChar = analysis.firstName[0];
   const mainComponent = mainChar?.cho; 
   const mainSipsung = mainComponent?.sipsung?.name || "미상";
-  const mainElement = mainComponent?.element || "미상";
+
+  // 이름의 구성을 일렬 종대(Linear Flow)로 나열하여 인접 관계를 명확히 함
+  // 내부 분석용 데이터에는 흐름을 제공하되, 출력에는 표시하지 않음
+  let linearFlowStr = "";
+  const components: { part: string, sipsung: string, element: string, isMyungjuseong: boolean }[] = [];
+
+  const addComp = (comp: NameComponentMapping | null, partName: string, isMain: boolean = false) => {
+    if (comp && comp.sipsung) {
+      components.push({
+        part: partName,
+        sipsung: comp.sipsung.name,
+        element: comp.element,
+        isMyungjuseong: isMain
+      });
+    }
+  };
+
+  addComp(analysis.lastName.cho, "성(초성)");
+  addComp(analysis.lastName.jung, "성(중성)");
+  addComp(analysis.lastName.jong, "성(종성)");
+
+  analysis.firstName.forEach((fn, idx) => {
+    const prefix = `이름${idx + 1}`;
+    addComp(fn.cho, `${prefix}(초성)`, idx === 0); 
+    addComp(fn.jung, `${prefix}(중성)`);
+    addComp(fn.jong, `${prefix}(종성)`);
+  });
+
+  // 오행 정보 포함 (건강운 분석용)
+  linearFlowStr = components.map((c, i) => 
+    `[${i + 1}] ${c.part}: ${c.sipsung}(${c.element}) ${c.isMyungjuseong ? "(기준점)" : ""}`
+  ).join(" -> \n");
+
+  const genderStr = analysis.gender === 'female' ? "여성(Female)" : "남성(Male)";
 
   const systemInstruction = `
-    당신은 대한민국 최고의 성명학 대가입니다. 
-    제공된 이름의 구성 요소를 분석하여, 다음 **4가지 고정 목차**에 맞춰 전문적이고 깊이 있는 감명서를 작성하십시오.
-    서론(인사말)은 생략하고 바로 첫 번째 목차부터 시작하십시오.
+    당신은 성명학 분석 엔진입니다. 
+    제공된 이름의 십성(十星) 배치를 분석하여 감명 결과를 작성하십시오.
+
+    [금지 사항 - 절대 어기지 말 것]
+    1. **서론, 인사말, 자기소개 금지**: "안녕하세요", "분석 결과입니다" 등의 멘트를 작성하지 마십시오. 바로 첫 번째 목차부터 시작하십시오.
+    2. **전문 용어 노출 금지**: '도미노 법칙', '극제', '명주성', '도식', '재극인', '인성태과' 등의 전문 용어를 본문에 절대 쓰지 마십시오.
+    3. **오행 분석 언급 제한**: 오행의 상생상극(목생화 등) 논리는 서술하지 마십시오. 단, **건강운**에서 신체 부위를 설명할 때만 오행 정보를 활용하십시오.
 
     [입력 정보]
-    - 이름: ${analysis.lastName.char}${analysis.firstName.map(f => f.char).join('')}
+    - 대상 성별: ${genderStr}
     - 생년: ${analysis.year}년 (${analysis.ganji}생)
-    - 상세 십성 배치: ${JSON.stringify(analysis)}
-    - 명주성(중심 기운): ${mainSipsung} (${mainElement})
+    - 십성 및 오행 흐름:
+    ${linearFlowStr}
 
-    [작성 목차 및 포함되어야 할 고급 통변 스킬]
+    [작성 목차 및 로직]
+    아래 4가지 항목으로만 구성하고, 각 항목의 내용은 아래 로직을 철저히 준수하여 서술하십시오.
 
     **1) 이름에 나타난 성향 분석**
-       - **명주성(${mainSipsung})의 고유 기질**을 중심으로 분석하십시오.
-       - 주변 글자와의 관계보다는 명주성 자체가 가진 사회적 성격, 내면의 심리, 대인관계 스타일을 명확하게 서술하십시오.
-       - 예: 정관(원칙/신용), 편관(리더십/의협심), 식신(창의/포용), 인성(지혜/직관) 등.
+       - 기준점(${mainSipsung})을 중심으로 성격을 풀이하되, 인접한 글자가 생(Support)하는지 극(Attack)하는지, 극을 당할 때 다른 글자가 도와주는지를 보고 성격의 긍정/부정적 측면을 서술하십시오.
 
     **2) 재물운과 직장운**
-       - 이 항목에 **특수 배합 로직**을 반드시 포함하여 서술하십시오.
-       - **[고급 스킬 A: 부동산/상속]**: 이름 내에 **관성(7,8)과 비겁(1,2)이 만나는 배치**가 있다면, "숨겨진 재물이 있고 부동산이나 상속의 기운이 강한 알짜배기 부자 유형"임을 강조하십시오.
-       - **[고급 스킬 B: 손재수]**: **비겁(1,2)이 재성(5,6)을 극하는 배치**가 있다면, "군비쟁재의 형국으로 돈이 모이면 나가는 일이 잦고, 투자나 보증에 유의해야 함"을 경고하십시오.
-       - **[일반]**: 위 특수 조건이 없다면 식상생재(성실함으로 버는 돈) 여부나 직장(관성)의 안정을 논하십시오.
+       - 재성(재물)과 관성(직장)이 파극(깨짐)되는지, 아니면 보호받는지 살피십시오.
+       - 공격받는 기운이 있어도 주변에서 막아주면 전화위복으로 해석하고, 막아주지 못하면 손실이나 어려움으로 해석하십시오.
 
-    **3) 건강운**
-       - 성명학에서 **식신/상관(3,4)**은 수명성과 건강을 나타냅니다.
-       - 식상이 인성(9,0)에 의해 극을 당하거나(도식), 너무 미약하면 소화기 계통이나 신경성 질환, 정신적 스트레스를 주의하라고 조언하십시오.
-       - 오행이 한쪽으로 치우친 경우(예: 화기가 너무 강함) 해당 장기의 건강 유의점을 언급하십시오.
+    **3) 건강운 (필수 로직 적용)**
+       - **판단 기준**: 건강은 전적으로 **'인성(편인, 정인)'**의 상태로 판단합니다.
+       - **문제 조건 (인성이 건강을 해치는 경우)**:
+         1. **인성이 중첩/혼잡**된 경우 (인성이 2개 이상)
+         2. 인성 태과 (너무 많음)
+         3. 인성이 식상을 극함 (도식)
+         4. 인성이 재성에 의해 극을 당함 (재극인)
+         5. 무인성
+       - **서술 방식**: 
+         - 위 조건에 해당하면 건강상 취약점이 있다고 서술하십시오.
+         - **취약 부위**: 문제가 되는 인성의 **오행(목/화/토/금/수)**을 확인하여 해당 신체 부위를 나열하십시오.
+           (목: 간/담/신경/관절, 화: 심장/소장/혈관, 토: 위장/피부/소화기, 금: 폐/대장/뼈/호흡기, 수: 신장/방광/혈액)
+         - **여성 특화 필수 문구**: 만약 대상이 **'여성'**이고 **인성에 문제(특히 중첩/태과)**가 있는 경우, 인성이 식상(자녀/자궁)을 극하는 원리이므로, 오행과 무관하게 **"자궁, 유방, 부인과 계통"**의 건강 유의를 **반드시 추가**하여 서술하십시오.
 
     **4) 기타**
-       - 부모운, 자식운, 배우자운 등 가정적인 부분과 인생의 전반적인 조언을 기술하십시오.
-       - 남성의 경우 재성(처)의 안위를, 여성의 경우 관성(남편)의 안위를 십성의 생극제화로 판단하여 한 줄 평을 남기십시오.
-       - 마지막으로 긍정적인 마음가짐을 위한 짧은 조언으로 마무리하십시오.
+       - 가정운(부모, 배우자, 자녀)을 십성의 조화로움으로 판단하여 한 줄로 요약하고, 긍정적인 조언으로 마무리하십시오.
   `;
 
   try {
@@ -65,7 +106,7 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
       },
     });
 
-    const response: GenerateContentResponse = await chat.sendMessage({ message: "위의 4가지 고정 목차(성향, 재물/직장, 건강, 기타)에 맞춰 정밀 통변해 주세요." });
+    const response: GenerateContentResponse = await chat.sendMessage({ message: "위의 [건강운 필수 로직]을 반드시 준수하여 4가지 목차로 결과를 작성해 주세요." });
     return response.text || "분석 결과를 생성할 수 없습니다.";
   } catch (error: any) {
     console.error("Gemini API Error:", error);

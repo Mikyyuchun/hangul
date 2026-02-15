@@ -36,6 +36,7 @@ export interface AnalysisResult {
   ganji: string;
   lastName: HangulComponent;
   firstName: HangulComponent[];
+  gender: 'male' | 'female';
 }
 
 export interface Message {

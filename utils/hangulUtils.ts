@@ -149,3 +149,14 @@ export const calculateGanji = (year: number): string => {
   const { gan, ji } = getYearGanjiParts(year);
   return gan + ji;
 };
+
+export const formatCheongan = (cheongan: string): string => {
+  const map: Record<string, string> = {
+    '갑': '갑목', '을': '을목',
+    '병': '병화', '정': '정화',
+    '무': '무토', '기': '기토',
+    '경': '경금', '신': '신금',
+    '임': '임수', '계': '계수'
+  };
+  return map[cheongan] || cheongan;
+};

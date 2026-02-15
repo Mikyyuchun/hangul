@@ -1,13 +1,16 @@
 
 import React, { useState } from 'react';
 import { AnalysisResult, NameComponentMapping } from './types';
-import { decomposeAndMap, getYearGanjiParts } from './utils/hangulUtils';
+import { decomposeAndMap, getYearGanjiParts, formatCheongan } from './utils/hangulUtils';
 import { getAIAnalysis } from './services/geminiService';
 
 const App: React.FC = () => {
-  const [year, setYear] = useState<number>(1974);
-  const [lastNameInput, setLastNameInput] = useState('강');
-  const [firstNameInput, setFirstNameInput] = useState('유정');
+  // 초기값을 공란으로 설정 (year는 빈 문자열 입력을 위해 string 타입으로 시작)
+  const [yearInput, setYearInput] = useState<string>('');
+  const [lastNameInput, setLastNameInput] = useState('');
+  const [firstNameInput, setFirstNameInput] = useState('');
+  const [gender, setGender] = useState<'male' | 'female'>('female'); // 기본값 여성
+  
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [reportText, setReportText] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -21,18 +24,24 @@ const App: React.FC = () => {
   };
 
   const handleAnalyze = async () => {
-    if (!lastNameInput || !firstNameInput) {
-      alert('성명 정보를 모두 입력해 주세요.');
+    if (!yearInput || !lastNameInput || !firstNameInput) {
+      alert('생년과 성명 정보를 모두 입력해 주세요.');
+      return;
+    }
+
+    const yearNum = parseInt(yearInput, 10);
+    if (isNaN(yearNum) || yearNum < 1900 || yearNum > 2100) {
+      alert('올바른 출생년도(4자리)를 입력해 주세요.');
       return;
     }
 
     setErrorCode(null);
-    const { gan, ji } = getYearGanjiParts(year);
+    const { gan, ji } = getYearGanjiParts(yearNum);
     const ganji = gan + ji;
     const lastName = decomposeAndMap(lastNameInput.charAt(0), gan);
     const firstName = Array.from(firstNameInput).map((char: string) => decomposeAndMap(char, gan));
     
-    const result: AnalysisResult = { year, yearGan: gan, yearJi: ji, ganji, lastName, firstName };
+    const result: AnalysisResult = { year: yearNum, yearGan: gan, yearJi: ji, ganji, lastName, firstName, gender };
     setAnalysis(result);
     setReportText(''); // 초기화
     
@@ -56,18 +65,16 @@ const App: React.FC = () => {
       symbol: string;
       cheongan: string;
       sipsungName: string;
-      isMyungjuseong: boolean;
     }
     
     const rows: RowData[] = [];
     
-    const addComponent = (comp: NameComponentMapping | null, isMyungjuseong: boolean = false) => {
+    const addComponent = (comp: NameComponentMapping | null) => {
       if (!comp) return;
       rows.push({
         symbol: comp.symbol,
-        cheongan: comp.cheongan,
+        cheongan: formatCheongan(comp.cheongan), // '갑목' 형태로 변환
         sipsungName: comp.sipsung?.name || '',
-        isMyungjuseong
       });
     };
 
@@ -77,9 +84,8 @@ const App: React.FC = () => {
     addComponent(result.lastName.jong);
 
     // 이름
-    result.firstName.forEach((fn, idx) => {
-      // 이름 첫 글자의 초성이 '명주성'임 (idx === 0 일 때 cho)
-      addComponent(fn.cho, idx === 0);
+    result.firstName.forEach((fn) => {
+      addComponent(fn.cho);
       addComponent(fn.jung);
       addComponent(fn.jong);
     });
@@ -93,43 +99,83 @@ const App: React.FC = () => {
       {/* 입력 폼 (출력 시 숨김) */}
       <div className="max-w-3xl mx-auto mb-10 bg-white p-6 rounded-lg border border-gray-200 shadow-sm not-print">
         <h2 className="text-lg font-bold mb-4 text-gray-700 border-b pb-2">신규 감명 신청</h2>
-        <div className="flex flex-col md:flex-row gap-4 items-end">
-          <div className="flex-1 w-full">
-            <label className="block text-sm font-bold text-gray-500 mb-1">출생년도 (양력)</label>
-            <input 
-              type="number" 
-              value={year} 
-              onChange={(e) => setYear(Number(e.target.value))} 
-              className="w-full border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none"
-            />
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row gap-4 items-end">
+            <div className="flex-1 w-full">
+              <label className="block text-sm font-bold text-gray-500 mb-1">출생년도 (양력)</label>
+              <input 
+                type="number" 
+                value={yearInput} 
+                onChange={(e) => setYearInput(e.target.value)} 
+                placeholder="예: 1980"
+                className="w-full border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none"
+              />
+            </div>
+            <div className="w-24">
+              <label className="block text-sm font-bold text-gray-500 mb-1">성(姓)</label>
+              <input 
+                type="text" 
+                value={lastNameInput} 
+                maxLength={1}
+                onChange={(e) => setLastNameInput(e.target.value)} 
+                placeholder="예: 김"
+                className="w-full border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none text-center"
+              />
+            </div>
+            <div className="flex-1 w-full">
+              <label className="block text-sm font-bold text-gray-500 mb-1">이름(名)</label>
+              <input 
+                type="text" 
+                value={firstNameInput} 
+                onChange={(e) => setFirstNameInput(e.target.value)} 
+                placeholder="예: 길동"
+                className="w-full border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none"
+              />
+            </div>
           </div>
-          <div className="w-24">
-            <label className="block text-sm font-bold text-gray-500 mb-1">성(姓)</label>
-            <input 
-              type="text" 
-              value={lastNameInput} 
-              maxLength={1}
-              onChange={(e) => setLastNameInput(e.target.value)} 
-              className="w-full border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none text-center"
-            />
+          
+          <div className="flex items-center gap-6 pt-2">
+            <label className="block text-sm font-bold text-gray-500">성별:</label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="radio" 
+                name="gender" 
+                value="female" 
+                checked={gender === 'female'}
+                onChange={() => setGender('female')}
+                className="w-4 h-4 text-[#5a4b41] focus:ring-[#5a4b41]"
+              />
+              <span className="text-gray-700">여성 (Female)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="radio" 
+                name="gender" 
+                value="male" 
+                checked={gender === 'male'}
+                onChange={() => setGender('male')}
+                className="w-4 h-4 text-[#5a4b41] focus:ring-[#5a4b41]"
+              />
+              <span className="text-gray-700">남성 (Male)</span>
+            </label>
+            
+            <div className="flex-1 text-right">
+              <button 
+                onClick={handleAnalyze} 
+                disabled={isLoading}
+                className="bg-[#5a4b41] text-[#dcd3c1] px-6 py-2 rounded font-bold hover:bg-[#4a3b31] transition-colors disabled:opacity-50 h-[42px]"
+              >
+                {isLoading ? '분석 중...' : '감명 시작'}
+              </button>
+            </div>
           </div>
-          <div className="flex-1 w-full">
-            <label className="block text-sm font-bold text-gray-500 mb-1">이름(名)</label>
-            <input 
-              type="text" 
-              value={firstNameInput} 
-              onChange={(e) => setFirstNameInput(e.target.value)} 
-              className="w-full border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none"
-            />
-          </div>
-          <button 
-            onClick={handleAnalyze} 
-            disabled={isLoading}
-            className="w-full md:w-auto bg-[#5a4b41] text-[#dcd3c1] px-6 py-2 rounded font-bold hover:bg-[#4a3b31] transition-colors disabled:opacity-50 h-[42px]"
-          >
-            {isLoading ? '분석 중...' : '감명 시작'}
-          </button>
         </div>
+        
+        {/* 안내 멘트 추가 */}
+        <p className="w-full text-center text-sm text-gray-500 mt-4 border-t border-dashed pt-3">
+          * 정확한 감명을 위해 <strong>생년(양력)</strong>, <strong>성별</strong>, <strong>성(姓)</strong>, <strong>이름(名)</strong>을 빠짐없이 입력하시기 바랍니다.
+        </p>
+
         {errorCode && (
           <div className="mt-4 p-3 bg-red-50 text-red-700 text-sm border border-red-200 rounded flex justify-between items-center">
              <span>⚠️ API 키 오류 또는 할당량 초과입니다.</span>
@@ -161,7 +207,7 @@ const App: React.FC = () => {
                    <div className="flex items-center">
                       <span className="w-16 font-bold text-gray-500 text-sm">성명</span>
                       <span className="text-2xl font-bold border-b border-gray-400 px-4 min-w-[100px]">
-                        {lastNameInput}{firstNameInput}
+                        {lastNameInput}{firstNameInput} ({analysis.gender === 'female' ? '女' : '男'})
                       </span>
                    </div>
                    <div className="flex items-center">
@@ -195,19 +241,16 @@ const App: React.FC = () => {
                           className={`
                             flex text-center items-center h-12 
                             ${idx !== arr.length - 1 ? 'border-b border-gray-300' : ''}
-                            ${row.isMyungjuseong ? 'bg-red-50' : 'bg-white'}
+                            bg-white
                           `}
                         >
-                          <div className={`flex-1 text-xl border-r border-gray-300 flex items-center justify-center relative ${row.isMyungjuseong ? 'font-black text-red-900' : 'font-serif'}`}>
+                          <div className="flex-1 text-xl border-r border-gray-300 flex items-center justify-center font-serif">
                             {row.symbol}
-                            {row.isMyungjuseong && (
-                              <span className="absolute -top-1 -left-1 text-[8px] bg-red-600 text-white px-1 rounded-br">명주성</span>
-                            )}
                           </div>
-                          <div className={`flex-1 text-base border-r border-gray-300 ${row.isMyungjuseong ? 'font-bold text-red-800' : 'text-gray-600'}`}>
+                          <div className="flex-1 text-base border-r border-gray-300 text-gray-600 font-bold">
                             {row.cheongan}
                           </div>
-                          <div className={`flex-1 text-base ${row.isMyungjuseong ? 'font-bold text-red-800' : 'text-gray-600'}`}>
+                          <div className="flex-1 text-base text-gray-600">
                             {row.sipsungName}
                           </div>
                         </div>
@@ -221,11 +264,6 @@ const App: React.FC = () => {
                         </div>
                       ))}
                     </div>
-                  </div>
-                  
-                  <div className="mt-4 p-3 bg-[#fcfbf7] text-xs text-gray-500 border border-[#e5e0d8] leading-relaxed text-justify">
-                    * <strong>명주성(命主星)</strong>은 이름의 중심 기운으로, 성격과 운세의 70% 이상을 좌우하는 핵심 요소입니다. 
-                    붉은색으로 표시된 부분이 귀하의 명주성입니다.
                   </div>
                 </div>
 
@@ -243,7 +281,7 @@ const App: React.FC = () => {
                           <span>성명학 대가 AI가 명조를 분석하고 있습니다...</span>
                         </div>
                       ) : (
-                        reportText || <div className="text-center text-gray-300 py-20">좌측 상단에서 생년과 이름을 입력하여<br/>분석을 시작하십시오.</div>
+                        reportText || <div className="text-center text-gray-300 py-20">좌측 상단에서 생년, 성별, 성명을 입력하여<br/>분석을 시작하십시오.</div>
                       )}
                    </div>
                 </div>
