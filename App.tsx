@@ -52,14 +52,22 @@ const App: React.FC = () => {
 
   // 분석 결과 데이터를 테이블 행으로 평탄화 (Flatten)
   const getTableRows = (result: AnalysisResult) => {
-    const rows: { symbol: string; cheongan: string; sipsungName: string; }[] = [];
+    interface RowData {
+      symbol: string;
+      cheongan: string;
+      sipsungName: string;
+      isMyungjuseong: boolean;
+    }
     
-    const addComponent = (comp: NameComponentMapping | null) => {
+    const rows: RowData[] = [];
+    
+    const addComponent = (comp: NameComponentMapping | null, isMyungjuseong: boolean = false) => {
       if (!comp) return;
       rows.push({
         symbol: comp.symbol,
         cheongan: comp.cheongan,
-        sipsungName: comp.sipsung?.name || ''
+        sipsungName: comp.sipsung?.name || '',
+        isMyungjuseong
       });
     };
 
@@ -69,8 +77,9 @@ const App: React.FC = () => {
     addComponent(result.lastName.jong);
 
     // 이름
-    result.firstName.forEach(fn => {
-      addComponent(fn.cho);
+    result.firstName.forEach((fn, idx) => {
+      // 이름 첫 글자의 초성이 '명주성'임 (idx === 0 일 때 cho)
+      addComponent(fn.cho, idx === 0);
       addComponent(fn.jung);
       addComponent(fn.jong);
     });
@@ -79,13 +88,14 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white text-black font-serif p-4 md:p-10">
+    <div className="min-h-screen bg-[#f5f5f0] text-black font-serif py-10 print:p-0 print:bg-white">
       
-      {/* 입력 폼 */}
-      <div className="max-w-4xl mx-auto mb-10 bg-gray-50 p-6 rounded-lg border border-gray-200 shadow-sm not-print">
+      {/* 입력 폼 (출력 시 숨김) */}
+      <div className="max-w-3xl mx-auto mb-10 bg-white p-6 rounded-lg border border-gray-200 shadow-sm not-print">
+        <h2 className="text-lg font-bold mb-4 text-gray-700 border-b pb-2">신규 감명 신청</h2>
         <div className="flex flex-col md:flex-row gap-4 items-end">
           <div className="flex-1 w-full">
-            <label className="block text-sm font-bold text-gray-500 mb-1">출생년도</label>
+            <label className="block text-sm font-bold text-gray-500 mb-1">출생년도 (양력)</label>
             <input 
               type="number" 
               value={year} 
@@ -94,7 +104,7 @@ const App: React.FC = () => {
             />
           </div>
           <div className="w-24">
-            <label className="block text-sm font-bold text-gray-500 mb-1">성</label>
+            <label className="block text-sm font-bold text-gray-500 mb-1">성(姓)</label>
             <input 
               type="text" 
               value={lastNameInput} 
@@ -104,7 +114,7 @@ const App: React.FC = () => {
             />
           </div>
           <div className="flex-1 w-full">
-            <label className="block text-sm font-bold text-gray-500 mb-1">이름</label>
+            <label className="block text-sm font-bold text-gray-500 mb-1">이름(名)</label>
             <input 
               type="text" 
               value={firstNameInput} 
@@ -115,9 +125,9 @@ const App: React.FC = () => {
           <button 
             onClick={handleAnalyze} 
             disabled={isLoading}
-            className="w-full md:w-auto bg-black text-white px-6 py-2 rounded font-bold hover:bg-gray-800 transition-colors disabled:opacity-50 h-[42px]"
+            className="w-full md:w-auto bg-[#5a4b41] text-[#dcd3c1] px-6 py-2 rounded font-bold hover:bg-[#4a3b31] transition-colors disabled:opacity-50 h-[42px]"
           >
-            {isLoading ? '분석 중...' : '분석하기'}
+            {isLoading ? '분석 중...' : '감명 시작'}
           </button>
         </div>
         {errorCode && (
@@ -128,73 +138,158 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* 결과 테이블 */}
+      {/* A4 감명지 영역 */}
       {analysis && (
-        <div className="max-w-5xl mx-auto border-2 border-black">
-          {/* 테이블 제목 */}
-          <div className="text-center py-3 border-b border-black text-xl font-bold bg-gray-50">
-            {lastNameInput}{firstNameInput} {analysis.year}년 {analysis.ganji}생
-          </div>
+        <div className="a4-page bg-white mx-auto shadow-2xl print:shadow-none print:mx-0 relative flex flex-col">
+          <div className="flex-1 border-[6px] border-double border-[#5a4b41] p-8 flex flex-col relative">
+             
+             {/* 워터마크 (배경 장식) */}
+             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none select-none">
+                <div className="text-[300px] font-bold text-black border-4 border-black rounded-full w-[400px] h-[400px] flex items-center justify-center">
+                    印
+                </div>
+             </div>
 
-          <div className="flex">
-            {/* 좌측: 구성요소 테이블 */}
-            <div className="w-[30%] md:w-[25%] border-r border-black flex flex-col">
-              {/* 헤더 */}
-              <div className="flex border-b border-black bg-gray-50 text-center font-bold text-sm h-8 items-center">
-                <div className="flex-1 border-r border-gray-300">이름</div>
-                <div className="flex-1 border-r border-gray-300">오행</div>
-                <div className="flex-1">육친</div>
-              </div>
-              
-              {/* 데이터 행들 */}
-              <div className="flex-1 flex flex-col">
-                 {getTableRows(analysis).map((row, idx, arr) => (
-                   <div key={idx} className={`flex text-center items-center h-12 ${idx !== arr.length - 1 ? 'border-b border-gray-300' : ''}`}>
-                     <div className="flex-1 font-bold text-lg border-r border-gray-300">{row.symbol}</div>
-                     <div className="flex-1 text-sm border-r border-gray-300">{row.cheongan}</div>
-                     <div className="flex-1 text-sm">{row.sipsungName}</div>
+             {/* 1. 헤더: 제목 및 기본 정보 */}
+             <header className="mb-8 text-center border-b-2 border-[#5a4b41] pb-6">
+                <h1 className="text-4xl font-extrabold text-[#3a2b21] mb-2 tracking-widest" style={{ fontFamily: '"Noto Serif KR", serif' }}>
+                  姓名學 鑑定書
+                </h1>
+                <p className="text-sm text-gray-500 uppercase tracking-[0.3em] mb-6">Statement of Name Analysis</p>
+                
+                <div className="flex justify-center gap-8 text-lg">
+                   <div className="flex items-center">
+                      <span className="w-16 font-bold text-gray-500 text-sm">성명</span>
+                      <span className="text-2xl font-bold border-b border-gray-400 px-4 min-w-[100px]">
+                        {lastNameInput}{firstNameInput}
+                      </span>
                    </div>
-                 ))}
-                 {/* 행 수가 적을 경우 빈 공간 채우기 (디자인 유지) */}
-                 {Array.from({ length: Math.max(0, 10 - getTableRows(analysis).length) }).map((_, i) => (
-                   <div key={`empty-${i}`} className="flex h-12 border-b border-gray-300 last:border-0">
-                     <div className="flex-1 border-r border-gray-300"></div>
-                     <div className="flex-1 border-r border-gray-300"></div>
-                     <div className="flex-1"></div>
+                   <div className="flex items-center">
+                      <span className="w-16 font-bold text-gray-500 text-sm">생년</span>
+                      <span className="text-xl border-b border-gray-400 px-4 min-w-[120px]">
+                        {analysis.year}년 ({analysis.ganji}생)
+                      </span>
                    </div>
-                 ))}
-              </div>
-            </div>
+                </div>
+             </header>
 
-            {/* 우측: 이름풀이 (AI 결과) */}
-            <div className="flex-1 flex flex-col">
-              <div className="h-8 border-b border-black bg-gray-50 text-center font-bold text-sm flex items-center justify-center text-orange-600 underline decoration-orange-600 underline-offset-4 decoration-dotted">
-                이름풀이
-              </div>
-              <div className="p-6 text-sm leading-relaxed whitespace-pre-wrap h-full min-h-[500px]">
-                {isLoading ? (
-                  <div className="flex items-center justify-center h-full text-gray-400 gap-2">
-                    <span className="animate-spin text-xl">⏳</span>
-                    <span>정밀 분석 중입니다...</span>
+             {/* 2. 본문: 좌측 도표 / 우측 상세설명 */}
+             <div className="flex-1 flex flex-col md:flex-row gap-6">
+                
+                {/* 좌측: 오행 분석표 */}
+                <div className="w-full md:w-[28%] flex-shrink-0">
+                  <div className="border-2 border-[#5a4b41]">
+                    <div className="bg-[#5a4b41] text-[#dcd3c1] text-center py-2 font-bold text-lg">
+                      오행 구조 (五行構造)
+                    </div>
+                    <div className="flex text-sm font-bold bg-gray-100 border-b border-gray-300 text-center py-2">
+                      <div className="flex-1 border-r border-gray-300">구분</div>
+                      <div className="flex-1 border-r border-gray-300">오행</div>
+                      <div className="flex-1">육친</div>
+                    </div>
+                    
+                    <div className="flex flex-col">
+                      {getTableRows(analysis).map((row, idx, arr) => (
+                        <div 
+                          key={idx} 
+                          className={`
+                            flex text-center items-center h-12 
+                            ${idx !== arr.length - 1 ? 'border-b border-gray-300' : ''}
+                            ${row.isMyungjuseong ? 'bg-red-50' : 'bg-white'}
+                          `}
+                        >
+                          <div className={`flex-1 text-xl border-r border-gray-300 flex items-center justify-center relative ${row.isMyungjuseong ? 'font-black text-red-900' : 'font-serif'}`}>
+                            {row.symbol}
+                            {row.isMyungjuseong && (
+                              <span className="absolute -top-1 -left-1 text-[8px] bg-red-600 text-white px-1 rounded-br">명주성</span>
+                            )}
+                          </div>
+                          <div className={`flex-1 text-base border-r border-gray-300 ${row.isMyungjuseong ? 'font-bold text-red-800' : 'text-gray-600'}`}>
+                            {row.cheongan}
+                          </div>
+                          <div className={`flex-1 text-base ${row.isMyungjuseong ? 'font-bold text-red-800' : 'text-gray-600'}`}>
+                            {row.sipsungName}
+                          </div>
+                        </div>
+                      ))}
+                      {/* 빈 행 채우기 (모양 유지) */}
+                      {Array.from({ length: Math.max(0, 12 - getTableRows(analysis).length) }).map((_, i) => (
+                        <div key={`empty-${i}`} className="flex h-12 border-b border-gray-200 last:border-0">
+                          <div className="flex-1 border-r border-gray-200"></div>
+                          <div className="flex-1 border-r border-gray-200"></div>
+                          <div className="flex-1"></div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ) : (
-                  reportText || <span className="text-gray-300 text-center block mt-20">분석 결과가 여기에 표시됩니다.</span>
-                )}
-              </div>
-            </div>
+                  
+                  <div className="mt-4 p-3 bg-[#fcfbf7] text-xs text-gray-500 border border-[#e5e0d8] leading-relaxed text-justify">
+                    * <strong>명주성(命主星)</strong>은 이름의 중심 기운으로, 성격과 운세의 70% 이상을 좌우하는 핵심 요소입니다. 
+                    붉은색으로 표시된 부분이 귀하의 명주성입니다.
+                  </div>
+                </div>
+
+                {/* 우측: 상세 통변 내용 */}
+                <div className="flex-1 flex flex-col">
+                   <div className="border-b-2 border-[#5a4b41] mb-4 pb-2 flex justify-between items-end">
+                      <h3 className="text-xl font-bold text-[#3a2b21]">정밀 통변 (精密 通變)</h3>
+                      <span className="text-xs text-gray-400">AI Name Analysis Lab</span>
+                   </div>
+                   
+                   <div className="flex-1 text-[16px] leading-[1.8] text-justify whitespace-pre-wrap font-serif text-gray-800">
+                      {isLoading ? (
+                        <div className="flex flex-col items-center justify-center h-64 text-gray-400 gap-4">
+                          <div className="animate-spin text-4xl text-[#5a4b41]">☯</div>
+                          <span>성명학 대가 AI가 명조를 분석하고 있습니다...</span>
+                        </div>
+                      ) : (
+                        reportText || <div className="text-center text-gray-300 py-20">좌측 상단에서 생년과 이름을 입력하여<br/>분석을 시작하십시오.</div>
+                      )}
+                   </div>
+                </div>
+             </div>
+
+             {/* 3. 푸터: 저작권 및 날짜 */}
+             <footer className="mt-8 pt-4 border-t border-[#5a4b41] text-center text-sm text-gray-500 flex justify-between items-center">
+                <span>감명일: {new Date().toLocaleDateString()}</span>
+                <span className="font-bold text-[#3a2b21]">AI 한글 성명학 연구소 謹呈</span>
+             </footer>
           </div>
         </div>
       )}
-      
-      <div className="text-center mt-10 text-xs text-gray-400 not-print">
-        AI 한글 성명학 연구소 | Powered by Google Gemini
-      </div>
 
       <style>{`
+        /* 화면에서의 A4 느낌 */
+        .a4-page {
+          width: 210mm;
+          min-height: 297mm;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+        }
+
+        /* 인쇄 시 설정 */
         @media print {
-          .not-print { display: none; }
-          body { padding: 0; background: white; }
-          .border-2 { border-width: 2px !important; }
+          @page {
+            size: A4;
+            margin: 0;
+          }
+          body {
+            background-color: white;
+            padding: 0;
+            margin: 0;
+          }
+          .not-print {
+            display: none !important;
+          }
+          .a4-page {
+            width: 100%;
+            height: auto;
+            min-height: 100%;
+            margin: 0;
+            box-shadow: none;
+            page-break-after: always;
+          }
         }
       `}</style>
     </div>
