@@ -30,7 +30,8 @@ export interface HangulComponent {
 }
 
 export interface AnalysisResult {
-  year: number;
+  birthDate: string; // YYYY-MM-DD
+  sajuYear: number;  // 입춘 기준 적용 연도
   yearGan: string;
   yearJi: string;
   ganji: string;

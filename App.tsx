@@ -1,12 +1,12 @@
 
 import React, { useState } from 'react';
 import { AnalysisResult, NameComponentMapping } from './types';
-import { decomposeAndMap, getYearGanjiParts, formatCheongan } from './utils/hangulUtils';
+import { decomposeAndMap, getYearGanjiParts, formatCheongan, getSajuYearFromDate } from './utils/hangulUtils';
 import { getAIAnalysis } from './services/geminiService';
 
 const App: React.FC = () => {
-  // 초기값을 공란으로 설정 (year는 빈 문자열 입력을 위해 string 타입으로 시작)
-  const [yearInput, setYearInput] = useState<string>('');
+  // 생년월일 입력을 위한 상태 (YYYY-MM-DD string)
+  const [birthDate, setBirthDate] = useState<string>('');
   const [lastNameInput, setLastNameInput] = useState('');
   const [firstNameInput, setFirstNameInput] = useState('');
   const [gender, setGender] = useState<'male' | 'female'>('female'); // 기본값 여성
@@ -24,29 +24,36 @@ const App: React.FC = () => {
   };
 
   const handleAnalyze = async () => {
-    if (!yearInput || !lastNameInput || !firstNameInput) {
-      alert('생년과 성명 정보를 모두 입력해 주세요.');
+    if (!birthDate || !lastNameInput || !firstNameInput) {
+      alert('생년월일과 성명 정보를 모두 입력해 주세요.');
       return;
     }
 
-    const yearNum = parseInt(yearInput, 10);
-    if (isNaN(yearNum) || yearNum < 1900 || yearNum > 2100) {
-      alert('올바른 출생년도(4자리)를 입력해 주세요.');
-      return;
-    }
+    // 입춘 기준 연도 계산
+    const sajuYear = getSajuYearFromDate(birthDate);
 
     setErrorCode(null);
-    const { gan, ji } = getYearGanjiParts(yearNum);
+    const { gan, ji } = getYearGanjiParts(sajuYear);
     const ganji = gan + ji;
     const lastName = decomposeAndMap(lastNameInput.charAt(0), gan);
     const firstName = Array.from(firstNameInput).map((char: string) => decomposeAndMap(char, gan));
     
-    const result: AnalysisResult = { year: yearNum, yearGan: gan, yearJi: ji, ganji, lastName, firstName, gender };
+    // AnalysisResult에 birthDate와 sajuYear 저장
+    const result: AnalysisResult = { 
+      birthDate,
+      sajuYear,
+      yearGan: gan, 
+      yearJi: ji, 
+      ganji, 
+      lastName, 
+      firstName, 
+      gender 
+    };
+    
     setAnalysis(result);
     setReportText(''); // 초기화
     
     setIsLoading(true);
-    // 빈 배열 전달 (단일 리포트 모드)
     const responseText = await getAIAnalysis(result, []);
     
     if (["QUOTA_EXCEEDED", "API_KEY_MISSING", "API_KEY_INVALID"].includes(responseText)) {
@@ -93,6 +100,46 @@ const App: React.FC = () => {
     return rows;
   };
 
+  // 결과 텍스트 렌더링 헬퍼
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-64 text-gray-400 gap-4">
+          <div className="animate-spin text-4xl text-[#5a4b41]">☯</div>
+          <span>성명학 대가 AI가 명조를 분석하고 있습니다...</span>
+        </div>
+      );
+    }
+
+    if (errorCode) {
+      return (
+        <div className="flex flex-col items-center justify-center h-64 text-red-600 gap-4 p-4 text-center">
+          <div className="text-4xl">⚠️</div>
+          <div className="font-bold">분석을 진행할 수 없습니다.</div>
+          <p className="text-sm text-gray-600">
+            {errorCode === "QUOTA_EXCEEDED" ? "API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요." : "유효한 API 키가 필요합니다."}
+          </p>
+          <button 
+            onClick={handleOpenKeySelector} 
+            className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 rounded font-bold transition-colors"
+          >
+            API 키 설정하기
+          </button>
+        </div>
+      );
+    }
+
+    if (!reportText) {
+      return (
+        <div className="text-center text-gray-300 py-20">
+          좌측 상단에서 생년월일, 성별, 성명을 입력하여<br/>분석을 시작하십시오.
+        </div>
+      );
+    }
+
+    return reportText;
+  };
+
   return (
     <div className="min-h-screen bg-[#f5f5f0] text-black font-serif py-10 print:p-0 print:bg-white">
       
@@ -102,14 +149,14 @@ const App: React.FC = () => {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col md:flex-row gap-4 items-end">
             <div className="flex-1 w-full">
-              <label className="block text-sm font-bold text-gray-500 mb-1">출생년도 (양력)</label>
+              <label className="block text-sm font-bold text-gray-500 mb-1">생년월일 (양력)</label>
               <input 
-                type="number" 
-                value={yearInput} 
-                onChange={(e) => setYearInput(e.target.value)} 
-                placeholder="예: 1980"
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none"
+                type="date" 
+                value={birthDate} 
+                onChange={(e) => setBirthDate(e.target.value)} 
+                className="w-full border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none font-sans"
               />
+              <p className="text-xs text-gray-400 mt-1">* 입춘(2월 4일)을 기준으로 띠(간지)가 결정됩니다.</p>
             </div>
             <div className="w-24">
               <label className="block text-sm font-bold text-gray-500 mb-1">성(姓)</label>
@@ -173,7 +220,7 @@ const App: React.FC = () => {
         
         {/* 안내 멘트 추가 */}
         <p className="w-full text-center text-sm text-gray-500 mt-4 border-t border-dashed pt-3">
-          * 정확한 감명을 위해 <strong>생년(양력)</strong>, <strong>성별</strong>, <strong>성(姓)</strong>, <strong>이름(名)</strong>을 빠짐없이 입력하시기 바랍니다.
+          * 정확한 감명을 위해 <strong>생년월일(양력)</strong>, <strong>성별</strong>, <strong>성(姓)</strong>, <strong>이름(名)</strong>을 빠짐없이 입력하시기 바랍니다.
         </p>
 
         {errorCode && (
@@ -213,7 +260,7 @@ const App: React.FC = () => {
                    <div className="flex items-center">
                       <span className="w-16 font-bold text-gray-500 text-sm">생년</span>
                       <span className="text-xl border-b border-gray-400 px-4 min-w-[120px]">
-                        {analysis.year}년 ({analysis.ganji}생)
+                        {analysis.birthDate} <span className="text-sm text-gray-500">({analysis.ganji}년 적용)</span>
                       </span>
                    </div>
                 </div>
@@ -275,14 +322,7 @@ const App: React.FC = () => {
                    </div>
                    
                    <div className="flex-1 text-[16px] leading-[1.8] text-justify whitespace-pre-wrap font-serif text-gray-800">
-                      {isLoading ? (
-                        <div className="flex flex-col items-center justify-center h-64 text-gray-400 gap-4">
-                          <div className="animate-spin text-4xl text-[#5a4b41]">☯</div>
-                          <span>성명학 대가 AI가 명조를 분석하고 있습니다...</span>
-                        </div>
-                      ) : (
-                        reportText || <div className="text-center text-gray-300 py-20">좌측 상단에서 생년, 성별, 성명을 입력하여<br/>분석을 시작하십시오.</div>
-                      )}
+                      {renderContent()}
                    </div>
                 </div>
              </div>

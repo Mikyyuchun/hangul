@@ -160,3 +160,25 @@ export const formatCheongan = (cheongan: string): string => {
   };
   return map[cheongan] || cheongan;
 };
+
+/**
+ * 입춘(양력 2월 4일) 기준으로 사주 명리학상의 연도를 계산합니다.
+ * @param dateStr YYYY-MM-DD 형식의 날짜 문자열
+ * @returns 입춘 기준 적용 연도
+ */
+export const getSajuYearFromDate = (dateStr: string): number => {
+  if (!dateStr) return new Date().getFullYear();
+  
+  const date = new Date(dateStr);
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1; // 1-12
+  const day = date.getDate();
+
+  // 입춘은 통상 양력 2월 4일입니다.
+  // 2월 4일 이전(2월 3일까지)에 태어났으면 전년도 간지를 사용합니다.
+  if (month < 2 || (month === 2 && day < 4)) {
+    return year - 1;
+  }
+  
+  return year;
+};
