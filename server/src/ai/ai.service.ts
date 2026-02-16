@@ -160,9 +160,9 @@ export class AiService {
             // theory_basic 규칙 추출
             const theoryRules = allMatches
                 .filter((match: any) => match.metadata?.source === 'theory_basic')
-                .map((match: any, idx: number) => {
+                .map((match: any) => {
                     const m = match.metadata || {};
-                    return `[통변규칙 ${idx + 1}] ${m.Subcategory || ''}
+                    return `${m.Subcategory || ''}
 ${m.Content || ''}`;
                 })
                 .join('\n\n');
