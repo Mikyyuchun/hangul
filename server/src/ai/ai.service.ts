@@ -150,6 +150,7 @@ export class AiService {
                 .join('\n\n');
 
             // 4. AI 프롬프트 구성
+            const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
             const prompt = `당신은 전문 성명학 분석가입니다. 아래 정보를 바탕으로 성명학 분석을 수행하세요.
 
 [분석 대상 정보]
