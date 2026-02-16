@@ -173,12 +173,12 @@ ${m.Content || ''}`;
                     match.metadata?.source === 'interpretation_rules' &&
                     match.metadata?.Condition_Code?.includes('명주성')
                 )
-                .map((match: any, idx: number) => {
+                .map((match: any) => {
                     const m = match.metadata || {};
-                    return `[조건 ${idx + 1}] ${m.Title || ''}
-- 설명: ${m.Description || ''}
-- 해석: ${m.Interpretation || ''}
-- 조언: ${m.Advice || ''}`;
+                    return `${m.Title || ''}
+설명: ${m.Description || ''}
+해석: ${m.Interpretation || ''}
+조언: ${m.Advice || ''}`;
                 })
                 .join('\n\n');
 
