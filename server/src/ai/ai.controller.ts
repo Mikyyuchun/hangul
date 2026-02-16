@@ -1,12 +1,26 @@
 import { Controller, Post, Body, Logger } from '@nestjs/common';
 import { AiService } from './ai.service';
 
+import { IsString, IsNumber, IsEnum, IsObject, IsOptional } from 'class-validator';
+
 export class AnalyzeNameDto {
+    @IsString()
     name: string;
+
+    @IsString()
     birthDate: string;
+
+    @IsEnum(['male', 'female'])
     gender: 'male' | 'female';
+
+    @IsNumber()
     sajuYear: number;
+
+    @IsString()
     ganji: string;
+
+    @IsObject()
+    @IsOptional()
     analysis: any; // 프론트엔드에서 계산한 십성 분석 데이터
 }
 
