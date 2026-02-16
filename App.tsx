@@ -168,14 +168,14 @@ const App: React.FC = () => {
       <div className="max-w-3xl mx-auto mb-10 bg-white p-6 rounded-lg border border-gray-200 shadow-sm not-print">
         <h2 className="text-lg font-bold mb-4 text-gray-700 border-b pb-2">신규 감명 신청</h2>
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col md:flex-row gap-4 items-end">
+          <div className="flex flex-col md:flex-row gap-4 items-start">
             <div className="flex-1 w-full">
               <label className="block text-sm font-bold text-gray-500 mb-1">생년월일 (양력)</label>
               <input
                 type="date"
                 value={birthDate}
                 onChange={(e) => setBirthDate(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none font-sans"
+                className="w-full border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none font-sans h-[42px]"
               />
               <p className="text-xs text-gray-400 mt-1">* 입춘(2월 4일)을 기준으로 띠(간지)가 결정됩니다.</p>
             </div>
@@ -187,7 +187,7 @@ const App: React.FC = () => {
                 maxLength={1}
                 onChange={(e) => setLastNameInput(e.target.value)}
                 placeholder="예: 김"
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none text-center"
+                className="w-full border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none text-center h-[42px]"
               />
             </div>
             <div className="flex-1 w-full">
@@ -197,7 +197,7 @@ const App: React.FC = () => {
                 value={firstNameInput}
                 onChange={(e) => setFirstNameInput(e.target.value)}
                 placeholder="예: 길동"
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none"
+                className="w-full border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none h-[42px]"
               />
             </div>
           </div>
@@ -260,7 +260,7 @@ const App: React.FC = () => {
             {/* 워터마크 (배경 장식) */}
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none select-none">
               <div className="text-[300px] font-bold text-black border-4 border-black rounded-full w-[400px] h-[400px] flex items-center justify-center">
-                印
+                留天
               </div>
             </div>
 
