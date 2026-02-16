@@ -188,12 +188,12 @@ ${m.Content || ''}`;
                     match.metadata?.source !== 'theory_basic' &&
                     match.metadata?.source !== 'interpretation_rules'
                 )
-                .map((match: any, idx: number) => {
+                .map((match: any) => {
                     const metadata = match.metadata || {};
-                    return `[참고 ${idx + 1}]\n${Object.entries(metadata)
+                    return Object.entries(metadata)
                         .filter(([key]) => key !== 'source')
                         .map(([key, value]) => `${key}: ${value}`)
-                        .join('\n')}`;
+                        .join('\n');
                 })
                 .join('\n\n');
 
