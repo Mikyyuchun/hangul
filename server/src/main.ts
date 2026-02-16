@@ -16,9 +16,13 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
   }));
 
-  // CORS 설정
+  // CORS 설정 - Vercel 배포 도메인 허용
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:5173'],
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      /\.vercel\.app$/, // 모든 Vercel 도메인 허용
+    ],
     credentials: true,
   });
 
