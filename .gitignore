@@ -32,3 +32,14 @@ dist-ssr
 # Environment Variables
 .env
 .env.*
+.vercel
+
+# Database
+*.db
+*.db-journal
+
+# Google Service Account (Sensitive)
+*-*.json
+
+# Test Scripts
+scripts_backup/

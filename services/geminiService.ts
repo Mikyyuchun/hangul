@@ -6,19 +6,19 @@ import { AnalysisResult, Message, NameComponentMapping } from "../types";
  * AI 성명학 통변 서비스 (십성 생극제화 로직 적용, 전문 용어 미노출)
  */
 export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]) => {
-  const apiKey = process.env.API_KEY;
-  
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
   if (!apiKey || apiKey === "undefined") {
     return "API_KEY_MISSING";
   }
 
   const ai = new GoogleGenAI({ apiKey });
   // 속도와 가용성을 위해 Flash 모델 사용
-  const modelName = "gemini-3-flash-preview"; 
-  
+  const modelName = "gemini-3-flash-preview";
+
   // 명주성 정의 (내부 로직용)
   const mainChar = analysis.firstName[0];
-  const mainComponent = mainChar?.cho; 
+  const mainComponent = mainChar?.cho;
   const mainSipsung = mainComponent?.sipsung?.name || "미상";
 
   // 이름의 구성을 일렬 종대(Linear Flow)로 나열하여 인접 관계를 명확히 함
@@ -44,13 +44,13 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
 
   analysis.firstName.forEach((fn, idx) => {
     const prefix = `이름${idx + 1}`;
-    addComp(fn.cho, `${prefix}(초성)`, idx === 0); 
+    addComp(fn.cho, `${prefix}(초성)`, idx === 0);
     addComp(fn.jung, `${prefix}(중성)`);
     addComp(fn.jong, `${prefix}(종성)`);
   });
 
   // 오행 정보 포함 (건강운 분석용)
-  linearFlowStr = components.map((c, i) => 
+  linearFlowStr = components.map((c, i) =>
     `[${i + 1}] ${c.part}: ${c.sipsung}(코드:${c.code}, 오행:${c.element}) ${c.isMyungjuseong ? "(기준점)" : ""}`
   ).join(" -> \n");
 

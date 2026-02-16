@@ -1,0 +1,11 @@
+{
+    "name": "namelogy-index",
+    "dimension": 3072,
+    "metric": "cosine",
+    "spec": {
+        "serverless": {
+            "cloud": "aws",
+            "region": "us-east-1"
+        }
+    }
+}

@@ -44,3 +44,9 @@ export interface Message {
   role: 'user' | 'model';
   text: string;
 }
+
+declare global {
+  interface Window {
+    aistudio: any;
+  }
+}
