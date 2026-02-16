@@ -29,7 +29,7 @@ export class AiService {
         // Gemini GenAI 초기화 (답변 생성용)
         this.genAI = new GoogleGenerativeAI(this.configService.get<string>('GEMINI_API_KEY') || '');
         this.model = this.genAI.getGenerativeModel({
-            model: 'gemini-pro',
+            model: 'gemini-1.5-flash',
             generationConfig: {
                 temperature: 0.1, // Hallucination 방지를 위해 창의성 낮춤
                 topP: 0.8,
@@ -173,7 +173,7 @@ ${context}
 서론이나 인사말 없이 바로 분석 내용부터 시작하세요.`;
 
             // 5. Gemini로 최종 분석 생성
-            const result = await this.model.generateContent(prompt);
+            const result = await model.generateContent(prompt);
             const response = await result.response;
             return response.text();
 
