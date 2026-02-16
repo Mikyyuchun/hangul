@@ -29,7 +29,7 @@ export class AiService {
         // Gemini GenAI 초기화 (답변 생성용)
         this.genAI = new GoogleGenerativeAI(this.configService.get<string>('GEMINI_API_KEY') || '');
         this.model = this.genAI.getGenerativeModel({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash',
             generationConfig: {
                 temperature: 0.1, // Hallucination 방지를 위해 창의성 낮춤
                 topP: 0.8,
@@ -150,7 +150,7 @@ export class AiService {
                 .join('\n\n');
 
             // 4. AI 프롬프트 구성
-            const model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+            const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
             const prompt = `당신은 전문 성명학 분석가입니다. 아래 정보를 바탕으로 성명학 분석을 수행하세요.
 
 [분석 대상 정보]

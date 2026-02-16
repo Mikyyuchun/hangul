@@ -10,17 +10,16 @@ async function testGemini() {
     }
 
     console.log('Testing with API Key length:', apiKey.length);
-    const axios = require('axios');
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
     try {
-        const response = await axios.get(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-        console.log('Available models:');
-        response.data.models.forEach(m => {
-            if (m.supportedGenerationMethods.includes('generateContent')) {
-                console.log(`- ${m.name}`);
-            }
-        });
+        const prompt = 'Hello';
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        console.log('SUCCESS with gemini-2.5-flash:', response.text());
     } catch (error) {
-        console.error('Error listing models:', error.response ? error.response.data : error.message);
+        console.error('FAILED with gemini-2.5-flash:', error.message);
     }
 }
 
