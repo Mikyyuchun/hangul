@@ -1,5 +1,5 @@
 // Backend API 서비스
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://server-three-phi-27.vercel.app/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://server-ahm9hhmm1-hanmays-projects.vercel.app/api';
 
 export interface AIAnalysisRequest {
     name: string;
