@@ -134,34 +134,73 @@ export class AiService {
             // 1. 십성 분석 데이터를 텍스트로 변환
             const analysisText = this.convertAnalysisToText(dto.analysis);
 
-            // 2. Pinecone에서 관련 지식 검색
-            const searchQuery = `${dto.gender === 'female' ? '여성' : '남성'} ${dto.ganji}생 ${analysisText}`;
-            const relevantKnowledge = await this.searchSimilar(searchQuery, 10);
+            // 명주성(이름 첫 글자 자음) 추출
+            let myeongjuseong = '정보 없음';
+            let myeongjuseongId = '';
+            if (dto.analysis && dto.analysis.firstName && Array.isArray(dto.analysis.firstName) && dto.analysis.firstName.length > 0) {
+                const firstChar = dto.analysis.firstName[0];
+                if (firstChar.cho && firstChar.cho.sipsung) {
+                    myeongjuseong = `${firstChar.cho.sipsung.name}(${firstChar.cho.sipsung.id})`;
+                    myeongjuseongId = firstChar.cho.sipsung.id;
+                }
+            }
 
-            // 3. 검색된 지식을 컨텍스트로 구성
-            const context = relevantKnowledge
+            // 2. Pinecone에서 관련 지식 검색 (카테고리별)
+            // 2-1. 명주성 조건 검색
+            const myeongjuseongQuery = `명주성 ${myeongjuseong} 조건`;
+            const myeongjuseongMatches = await this.searchSimilar(myeongjuseongQuery, 8);
+
+            // 2-2. 통변 규칙 검색
+            const theoryQuery = `성명학 통변규칙 ${dto.gender === 'female' ? '여성' : '남성'} ${dto.ganji}생 ${analysisText}`;
+            const theoryMatches = await this.searchSimilar(theoryQuery, 8);
+
+            // 3. 검색 결과를 소스별로 분류
+            const allMatches = [...myeongjuseongMatches, ...theoryMatches];
+
+            // theory_basic 규칙 추출
+            const theoryRules = allMatches
+                .filter((match: any) => match.metadata?.source === 'theory_basic')
+                .map((match: any, idx: number) => {
+                    const m = match.metadata || {};
+                    return `[통변규칙 ${idx + 1}] ${m.Subcategory || ''}
+${m.Content || ''}`;
+                })
+                .join('\n\n');
+
+            // interpretation_rules 규칙 추출 (명주성 관련)
+            const interpretationRules = allMatches
+                .filter((match: any) =>
+                    match.metadata?.source === 'interpretation_rules' &&
+                    match.metadata?.Condition_Code?.includes('명주성')
+                )
+                .map((match: any, idx: number) => {
+                    const m = match.metadata || {};
+                    return `[조건 ${idx + 1}] ${m.Title || ''}
+- 설명: ${m.Description || ''}
+- 해석: ${m.Interpretation || ''}
+- 조언: ${m.Advice || ''}`;
+                })
+                .join('\n\n');
+
+            // 기타 참고 자료
+            const otherReferences = allMatches
+                .filter((match: any) =>
+                    match.metadata?.source !== 'theory_basic' &&
+                    match.metadata?.source !== 'interpretation_rules'
+                )
                 .map((match: any, idx: number) => {
                     const metadata = match.metadata || {};
-                    return `[참고자료 ${idx + 1}]\n${Object.entries(metadata)
+                    return `[참고 ${idx + 1}]\n${Object.entries(metadata)
                         .filter(([key]) => key !== 'source')
                         .map(([key, value]) => `${key}: ${value}`)
                         .join('\n')}`;
                 })
                 .join('\n\n');
 
-            // 명주성(이름 첫 글자 자음) 추출
-            let myeongjuseong = '정보 없음';
-            if (dto.analysis && dto.analysis.firstName && Array.isArray(dto.analysis.firstName) && dto.analysis.firstName.length > 0) {
-                const firstChar = dto.analysis.firstName[0];
-                if (firstChar.cho && firstChar.cho.sipsung) {
-                    myeongjuseong = `${firstChar.cho.sipsung.name}(${firstChar.cho.sipsung.id})`;
-                }
-            }
-
             // 4. AI 프롬프트 구성
             const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
             const prompt = `당신은 대한민국 최고의 성명학 전문가입니다.
-아래 제공된 [분석 대상 정보]와 [성명학 지식 베이스]를 바탕으로 정밀한 성명학 분석 보고서를 작성하세요.
+아래 제공된 [분석 대상 정보]와 [필수 준수 규칙]을 바탕으로 정밀한 성명학 분석 보고서를 작성하세요.
 
 [분석 대상 정보]
 - 이름: ${dto.name}
@@ -171,27 +210,40 @@ export class AiService {
 - 명주성(이름의 핵심 기준): ${myeongjuseong}
 - 전체 십성 분석: ${analysisText}
 
-[성명학 지식 베이스 (참고 자료)]
-${context}
+[필수 준수 규칙 1: 성명학 통변규칙 (theory_basic)]
+${theoryRules || '(검색된 통변규칙 없음)'}
 
-[성명학 분석 원칙 (반드시 준수)]
-1. **명주성(이름 첫 자음) 중심 분석**:
-   - 성격과 기질 분석 시, **'명주성'**이 길한 십성(식신, 정재, 편재, 정관, 정인 등)인지 흉한 십성(상관, 편관, 겁재 등)인지에 따라 기본 성향을 판단해야 합니다.
-   - 명주성이 길성이라면 긍정적인 기질이, 흉성이라면 다소 강하거나 주의가 필요한 기질이 기본이 됩니다. (단, 흉성이라도 제화되면 긍정적임)
+[필수 준수 규칙 2: 명주성 분석 규칙 (interpretation_rules)]
+${interpretationRules || '(검색된 명주성 규칙 없음)'}
 
-2. **중첩과 극제(剋制)의 원리**:
+${otherReferences ? `[추가 참고 자료]\n${otherReferences}\n` : ''}
+
+[성명학 분석 원칙 (최우선 준수)]
+1. **필수 준수 규칙 최우선 적용**:
+   - 위 [필수 준수 규칙 1, 2]에 명시된 내용을 **절대적으로 우선**하여 적용하세요.
+   - 규칙에 정확히 일치하는 조건이 있다면, 그 해석과 조언을 **그대로** 사용하세요.
+   - 규칙의 문구를 임의로 변경하거나 요약하지 말고, 원문 그대로 인용하세요.
+
+2. **명주성(이름 첫 자음) 중심 분석**:
+   - 성격과 기질 분석 시, **'명주성'**이 길한 십성인지 흉한 십성인지에 따라 기본 성향을 판단해야 합니다.
+   - [필수 준수 규칙 2]에서 명주성에 해당하는 조건을 찾아 정확히 적용하세요.
+
+3. **중첩과 극제(剋制)의 원리**:
    - 같은 십성이 2개 이상 **중첩**되면 그 기운이 탁해지거나 과도해져 부정적으로 발현될 수 있습니다.
    - **핵심 예외**: 그러나 다른 십성이 이 중첩된 기운을 **극(剋)**하여 제어해준다면, 그 기운은 맑아지고(淸) 오히려 긍정적이고 강력한 장점으로 승화됩니다.
-   - 예시: '겁재'가 중첩되어 독단적일 수 있으나, '관성'이 이를 극해주면 강력한 리더십과 추진력이 됩니다. '상관'이 중첩되면 반항적일 수 있으나, '인성'이 극해주면 천재적인 창의성과 표현력이 됩니다.
-   - **분석 시 이 '극제를 통한 정화' 로직을 반드시 적용하여, 단점을 장점으로 승화시키는 통변을 하세요.**
+   - 이 '극제를 통한 정화' 로직을 반드시 적용하여, 단점을 장점으로 승화시키는 통변을 하세요.
 
-3. **분석 어조**: 명확하고 전문적이며, 내담자에게 신뢰를 주는 정중한 어조를 사용하세요. 결론은 희망적이고 건설적인 조언으로 마무리하세요.
+4. **규칙 없는 경우의 대응**:
+   - 필수 준수 규칙에 해당 조건이 없는 경우에만, 일반적인 성명학 원리로 보완하세요.
+   - 단, 보완 내용이 필수 준수 규칙과 모순되지 않도록 주의하세요.
+
+5. **분석 어조**: 명확하고 전문적이며, 내담자에게 신뢰를 주는 정중한 어조를 사용하세요. 결론은 희망적이고 건설적인 조언으로 마무리하세요.
 
 [작성 요청 항목]
 서론 없이 바로 다음 항목을 분석하세요:
-1. **성격 및 기질 분석** (명주성 위주 + 중첩/극제 로직 적용)
-2. **재물운과 직업운**
-3. **건강운**
+1. **성격 및 기질 분석** (명주성 위주 + 필수 준수 규칙 적용 + 중첩/극제 로직 적용)
+2. **재물운과 직업운** (필수 준수 규칙의 재물운 통변 적용)
+3. **건강운** (필수 준수 규칙의 건강운 통변 적용)
 4. **가정 및 총평**`;
 
             // 5. Gemini로 최종 분석 생성
