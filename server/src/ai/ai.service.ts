@@ -22,9 +22,9 @@ export class AiService {
 
         // Pinecone 초기화
         this.pinecone = new Pinecone({
-            apiKey: this.configService.get<string>('PINECONE_API_KEY') || '',
+            apiKey: process.env.PINECONE_API_KEY?.trim(),
         });
-        this.indexName = this.configService.get<string>('PINECONE_INDEX') || 'namelogy-index';
+        this.indexName = process.env.PINECONE_INDEX?.trim() || 'namelogy-index';
 
         // Gemini GenAI 초기화 (답변 생성용)
         this.genAI = new GoogleGenerativeAI(this.configService.get<string>('GEMINI_API_KEY') || '');
