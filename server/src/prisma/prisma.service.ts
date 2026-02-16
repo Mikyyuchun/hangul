@@ -8,7 +8,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     }
 
     async onModuleInit() {
-        await this.$connect();
+        try {
+            await this.$connect();
+        } catch (error) {
+            console.warn('Warning: Failed to connect to database. AI features will work, but history saving may fail.', error.message);
+        }
     }
 
     async onModuleDestroy() {
