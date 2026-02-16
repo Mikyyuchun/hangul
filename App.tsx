@@ -54,16 +54,37 @@ const App: React.FC = () => {
     setReportText(''); // 초기화
 
     setIsLoading(true);
-    const responseText = await getAIAnalysis(result, []);
 
-    if (["QUOTA_EXCEEDED", "API_KEY_MISSING", "API_KEY_INVALID"].includes(responseText)) {
-      setErrorCode(responseText);
+    try {
+      // 백엔드 RAG 시스템 호출 (Google Sheets + Pinecone 지식 베이스 활용)
+      const API_URL = import.meta.env.VITE_API_URL || 'https://server-three-phi-27.vercel.app/api';
+      const response = await fetch(`${API_URL}/ai/analyze`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: `${lastNameInput}${firstNameInput}`,
+          birthDate,
+          gender,
+          sajuYear,
+          ganji,
+          analysis: result, // 프론트엔드에서 계산한 십성 분석 데이터 전달
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`백엔드 API 오류: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setReportText(data.analysis);
+    } catch (error: any) {
+      console.error('Analysis error:', error);
+      setReportText(`분석 중 오류가 발생했습니다: ${error.message}\n\n잠시 후 다시 시도해주세요.`);
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    setReportText(responseText);
-    setIsLoading(false);
   };
 
   // 분석 결과 데이터를 테이블 행으로 평탄화 (Flatten)
