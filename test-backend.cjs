@@ -10,7 +10,7 @@ const data = JSON.stringify({
 });
 
 const options = {
-    hostname: 'server-7se32xhxf-hanmays-projects.vercel.app',
+    hostname: 'server-o7z0ai5ug-hanmays-projects.vercel.app',
     path: '/api/ai/analyze',
     method: 'POST',
     headers: {

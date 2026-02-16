@@ -177,8 +177,8 @@ ${context}
             return response.text();
 
         } catch (error) {
-            this.logger.error('Failed to analyze with knowledge base', error.message);
-            throw new Error('분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+            this.logger.error('Failed to analyze with knowledge base', error);
+            throw new Error(`분석 중 오류가 발생했습니다: ${error.message}`);
         }
     }
 
