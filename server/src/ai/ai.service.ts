@@ -22,7 +22,7 @@ export class AiService {
 
         // Pinecone 초기화
         this.pinecone = new Pinecone({
-            apiKey: process.env.PINECONE_API_KEY?.trim(),
+            apiKey: process.env.PINECONE_API_KEY?.trim() || '',
         });
         this.indexName = process.env.PINECONE_INDEX?.trim() || 'namelogy-index';
 
