@@ -26,8 +26,15 @@ export const getAIAnalysis = async (analysis: AnalysisResult, history: Message[]
   let linearFlowStr = "";
   const components: { part: string, sipsung: string, code: number, element: string, isMyungjuseong: boolean }[] = [];
 
-  const addComp = (comp: NameComponentMapping | null, partName: string, isMain: boolean = false) => {
-    if (comp && comp.sipsung) {
+  const addComp = (comp: NameComponentMapping | NameComponentMapping[] | null, partName: string, isMain: boolean = false) => {
+    if (!comp) return;
+
+    if (Array.isArray(comp)) {
+      comp.forEach((c) => addComp(c, partName, isMain));
+      return;
+    }
+
+    if (comp.sipsung) {
       components.push({
         part: partName,
         sipsung: comp.sipsung.name,
