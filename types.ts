@@ -25,7 +25,7 @@ export interface NameComponentMapping {
 export interface HangulComponent {
   char: string;
   cho: NameComponentMapping;
-  jung: NameComponentMapping;
+  jung: NameComponentMapping | NameComponentMapping[];
   jong: NameComponentMapping | null;
 }
 

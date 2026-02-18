@@ -12,6 +12,17 @@ const SIPSUNG_NAMES: Record<number, string> = {
   1: '비견', 2: '겁재', 3: '식신', 4: '상관', 5: '편재', 6: '정재', 7: '편관', 8: '정관', 9: '편인', 0: '정인'
 };
 
+
+const VOWEL_DECOMPOSITION: Record<string, string[]> = {
+  'ㅘ': ['ㅗ', 'ㅏ'],
+  'ㅙ': ['ㅗ', 'ㅏ', 'ㅣ'],
+  'ㅚ': ['ㅗ', 'ㅣ'],
+  'ㅝ': ['ㅜ', 'ㅓ'],
+  'ㅞ': ['ㅜ', 'ㅓ', 'ㅣ'],
+  'ㅟ': ['ㅜ', 'ㅣ'],
+  // 'ㅢ'는 복모음 그대로 사용 (기토) - 분해하지 않음
+};
+
 const getGroupName = (code: number): string => {
   if (code === 1 || code === 2) return '비겁';
   if (code === 3 || code === 4) return '식상';
@@ -48,23 +59,23 @@ const getGanjiMapping = (symbol: string): { cheongan: string; jiji: string; elem
 };
 
 const SIPSUNG_MATRIX = [
-  [1, 2, 3, 4, 5, 6, 7, 8, 9, 0], 
-  [2, 1, 4, 3, 6, 5, 8, 7, 0, 9], 
-  [9, 0, 1, 2, 3, 4, 5, 6, 7, 8], 
-  [0, 9, 2, 1, 4, 3, 6, 5, 8, 7], 
-  [7, 8, 9, 0, 1, 2, 3, 4, 5, 6], 
-  [8, 7, 0, 9, 2, 1, 4, 3, 6, 5], 
-  [5, 6, 7, 8, 9, 0, 1, 2, 3, 4], 
-  [6, 5, 8, 7, 0, 9, 2, 1, 4, 3], 
-  [3, 4, 5, 6, 7, 8, 9, 0, 1, 2], 
-  [4, 3, 6, 5, 8, 7, 0, 9, 2, 1], 
+  [1, 2, 3, 4, 5, 6, 7, 8, 9, 0],
+  [2, 1, 4, 3, 6, 5, 8, 7, 0, 9],
+  [9, 0, 1, 2, 3, 4, 5, 6, 7, 8],
+  [0, 9, 2, 1, 4, 3, 6, 5, 8, 7],
+  [7, 8, 9, 0, 1, 2, 3, 4, 5, 6],
+  [8, 7, 0, 9, 2, 1, 4, 3, 6, 5],
+  [5, 6, 7, 8, 9, 0, 1, 2, 3, 4],
+  [6, 5, 8, 7, 0, 9, 2, 1, 4, 3],
+  [3, 4, 5, 6, 7, 8, 9, 0, 1, 2],
+  [4, 3, 6, 5, 8, 7, 0, 9, 2, 1],
 ];
 
 const calculateSipsung = (nameGan: string, yearGan: string): SipsungInfo | null => {
   const nameIdx = CHEONGAN.indexOf(nameGan);
   const yearIdx = CHEONGAN.indexOf(yearGan);
   if (nameIdx === -1 || yearIdx === -1) return null;
-  
+
   const code = SIPSUNG_MATRIX[nameIdx][yearIdx];
   return { code, name: SIPSUNG_NAMES[code], groupName: getGroupName(code) };
 };
@@ -129,10 +140,20 @@ export const decomposeAndMap = (char: string, yearGan: string): any => {
     return { symbol: sym, cheongan, jiji, element, sipsung };
   };
 
+  const getJungComponent = (sym: string): NameComponentMapping | NameComponentMapping[] => {
+    // 1. 복모음 분해 로직 (ㅢ 제외)
+    // sym이 분해 대상인 경우
+    if (VOWEL_DECOMPOSITION[sym]) {
+      return VOWEL_DECOMPOSITION[sym].map(subSym => mapComponent(subSym));
+    }
+    // 2. 단모음이거나 'ㅢ'인 경우 그대로 매핑
+    return mapComponent(sym);
+  };
+
   return {
     char,
     cho: mapComponent(choSym),
-    jung: mapComponent(jungSym),
+    jung: getJungComponent(jungSym),
     jong: jongSym ? mapComponent(jongSym) : null
   };
 };
@@ -168,7 +189,7 @@ export const formatCheongan = (cheongan: string): string => {
  */
 export const getSajuYearFromDate = (dateStr: string): number => {
   if (!dateStr) return new Date().getFullYear();
-  
+
   const date = new Date(dateStr);
   const year = date.getFullYear();
   const month = date.getMonth() + 1; // 1-12
@@ -179,6 +200,6 @@ export const getSajuYearFromDate = (dateStr: string): number => {
   if (month < 2 || (month === 2 && day < 4)) {
     return year - 1;
   }
-  
+
   return year;
 };

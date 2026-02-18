@@ -108,13 +108,21 @@ const App: React.FC = () => {
 
     // 성
     addComponent(result.lastName.cho);
-    addComponent(result.lastName.jung);
+    if (Array.isArray(result.lastName.jung)) {
+      result.lastName.jung.forEach(comp => addComponent(comp));
+    } else {
+      addComponent(result.lastName.jung);
+    }
     addComponent(result.lastName.jong);
 
     // 이름
     result.firstName.forEach((fn) => {
       addComponent(fn.cho);
-      addComponent(fn.jung);
+      if (Array.isArray(fn.jung)) {
+        fn.jung.forEach(comp => addComponent(comp));
+      } else {
+        addComponent(fn.jung);
+      }
       addComponent(fn.jong);
     });
 
