@@ -57,7 +57,7 @@ const App: React.FC = () => {
 
     try {
       // 백엔드 RAG 시스템 호출 (Google Sheets + Pinecone 지식 베이스 활용)
-      const API_URL = import.meta.env.VITE_API_URL || 'https://server-3sgm7iyx0-hanmays-projects.vercel.app/api';
+      const API_URL = import.meta.env.VITE_API_URL || 'https://server-three-phi-27.vercel.app/api';
       const response = await fetch(`${API_URL}/ai/analyze`, {
         method: 'POST',
         headers: {
