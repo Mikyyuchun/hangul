@@ -154,8 +154,13 @@ export class AiService {
             const theoryQuery = `성명학 통변규칙 ${dto.gender === 'female' ? '여성' : '남성'} ${dto.ganji}생 ${analysisText}`;
             const theoryMatches = await this.searchSimilar(theoryQuery, 8);
 
+            // 2-3. [NEW] 실제 상담 사례(Case Study) 검색 - 통변 로직 학습용
+            // 명주성과 주요 십성 패턴을 기반으로 검색
+            const caseStudyQuery = `Case Study 명주성 ${myeongjuseong} ${analysisText} 통변 방법`;
+            const caseStudyMatches = await this.searchSimilar(caseStudyQuery, 5);
+
             // 3. 검색 결과를 소스별로 분류
-            const allMatches = [...myeongjuseongMatches, ...theoryMatches];
+            const allMatches = [...myeongjuseongMatches, ...theoryMatches, ...caseStudyMatches];
 
             // theory_basic 규칙 추출
             const theoryRules = allMatches
@@ -182,11 +187,26 @@ ${m.Content || ''}`;
                 })
                 .join('\n\n');
 
+            // [NEW] case_studies 통변 로직 추출
+            // 가장 유사도가 높은 상위 2개 케이스의 통변 방법(Interpretation_method)만 참조
+            const caseStudyLogic = caseStudyMatches
+                .filter((match: any) => match.metadata?.source === 'case_studies')
+                .slice(0, 2)
+                .map((match: any, index: number) => {
+                    const m = match.metadata || {};
+                    return `[참고 사례 ${index + 1}: ${m.Title || '제목 없음'}]
+- 명주성/십성패턴: ${m.Sipsung_Pattern || ''}
+- 통변 로직(분석 방법):
+${m.Interpretation_method || ''}`;
+                })
+                .join('\n\n');
+
             // 기타 참고 자료
             const otherReferences = allMatches
                 .filter((match: any) =>
                     match.metadata?.source !== 'theory_basic' &&
-                    match.metadata?.source !== 'interpretation_rules'
+                    match.metadata?.source !== 'interpretation_rules' &&
+                    match.metadata?.source !== 'case_studies'
                 )
                 .map((match: any) => {
                     const metadata = match.metadata || {};
@@ -200,7 +220,7 @@ ${m.Content || ''}`;
             // 4. AI 프롬프트 구성
             const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
             const prompt = `당신은 대한민국 최고의 성명학 전문가입니다.
-아래 제공된 [분석 대상 정보]와 [필수 준수 규칙]을 바탕으로 정밀한 성명학 분석 보고서를 작성하세요.
+아래 제공된 [분석 대상 정보]와 [전문가 통변 로직(Case Study)]을 철저히 학습하여 정밀한 성명학 분석 보고서를 작성하세요.
 
 [분석 대상 정보]
 - 이름: ${dto.name}
@@ -210,48 +230,41 @@ ${m.Content || ''}`;
 - 명주성(이름의 핵심 기준): ${myeongjuseong}
 - 전체 십성 분석: ${analysisText}
 
-[필수 준수 규칙 1: 성명학 통변규칙 (theory_basic)]
+[필수 준수 규칙 1: 성명학 통변규칙]
 ${theoryRules || '(검색된 통변규칙 없음)'}
 
-[필수 준수 규칙 2: 명주성 분석 규칙 (interpretation_rules)]
+[필수 준수 규칙 2: 명주성 분석 규칙]
 ${interpretationRules || '(검색된 명주성 규칙 없음)'}
+
+[전문가 통변 로직 참고 (Case Study 습득)]
+**매우 중요**: 아래 사례들은 실제 전문가가 분석한 "모범 답안"의 논리 구조입니다. 이 논리 흐름(Flow)을 그대로 모방하여 이번 분석에 적용하세요.
+${caseStudyLogic || '(유사한 Case Study가 없어 일반 로직을 따릅니다)'}
 
 ${otherReferences ? `[추가 참고 자료]\n${otherReferences}\n` : ''}
 
-[성명학 분석 원칙 (최우선 준수)]
-1. **필수 준수 규칙 최우선 적용**:
-   - 위 [필수 준수 규칙 1, 2]에 명시된 내용을 **절대적으로 우선**하여 적용하세요.
-   - 규칙에 정확히 일치하는 조건이 있다면, 그 해석과 조언을 **그대로** 사용하세요.
-
-2. **명주성(이름 첫 자음) 중심 분석**:
-   - 성격과 기질 분석 시, **'명주성'**이 길한 십성인지 흉한 십성인지에 따라 기본 성향을 판단해야 합니다.
-   - [필수 준수 규칙 2]에서 명주성에 해당하는 조건을 찾아 정확히 적용하세요.
-
-3. **중첩과 극제(剋制)의 원리**:
-   - 같은 십성이 2개 이상 **중첩**되면 그 기운이 탁해지거나 과도해져 부정적으로 발현될 수 있습니다.
-   - **핵심 예외**: 그러나 다른 십성이 이 중첩된 기운을 **극(剋)**하여 제어해준다면, 그 기운은 맑아지고(淸) 오히려 긍정적이고 강력한 장점으로 승화됩니다.
-   - 이 '극제를 통한 정화' 로직을 반드시 적용하여, 단점을 장점으로 승화시키는 통변을 하세요.
-
-4. **규칙 없는 경우의 대응**:
-   - 필수 준수 규칙에 해당 조건이 없는 경우에만, 일반적인 성명학 원리로 보완하세요.
-   - 단, 보완 내용이 필수 준수 규칙과 모순되지 않도록 주의하세요.
-
-5. **분석 어조 및 작성 방식 (매우 중요)**:
-   - 명확하고 전문적이며, 내담자에게 신뢰를 주는 정중한 어조를 사용하세요.
-   - **절대 금지**: 분석 과정에서 사용한 규칙, 원리, 십성의 형태, 조건 등을 언급하지 마세요.
-   - **절대 금지**: "필수 준수 규칙에 따르면", "명주성이 ~이므로", "십성의 배치가", "~의 조건을 만족하므로" 같은 설명적 표현을 사용하지 마세요.
-   - **올바른 방식**: 규칙을 내부적으로 적용하되, 최종 결과와 해석만을 자연스럽게 서술하세요.
-   - 마치 오랜 경험을 가진 성명학 전문가가 직관적으로 분석한 것처럼 작성하세요.
-   - 결론은 희망적이고 건설적인 조언으로 마무리하세요.
+[성명학 분석 프로세스 (Case Study 기반)]
+1. **명주성 파악**: 이름의 첫 자음(명주성)이 십성 중 무엇인지 확인하고, 그 기본적인 성향(지혜, 관록, 재물 등)을 먼저 정의하세요.
+2. **명주성의 상태 분석 (중첩/혼잡)**:
+   - 명주성과 위/아래 글자(성 초성, 이름 중/종성 등)와의 관계를 살피세요.
+   - 같은 십성이 과도하게 중첩되었는지 확인하세요.
+3. **극제(剋制) 여부 확인**:
+   - 중첩된 흉한 기운을 제어해주는 십성(예: 식신을 극하는 인성, 관성을 생하는 재성 등)이 주변에 있는지 확인하세요.
+   - 극제하는 기운이 있다면 "탁함이 맑아져 전화위복이 됨"으로 해석하고, 없다면 "해당 십성의 단점이 발현됨"으로 해석하세요.
+4. **재성/관성 분석**:
+   - 재물운(재성)과 직업/명예운(관성)이 살아있는지, 파괴되었는지(극을 받는지) 분석하세요.
+5. **건강운(인성) 및 총평**:
+   - 인성의 유무와 상태를 통해 건강과 문서운을 판단하고 종합적인 조언을 하세요.
 
 [작성 요청 항목]
 서론 없이 바로 다음 항목을 분석하세요:
-1. **성격 및 기질 분석**
-2. **재물운과 직업운**
-3. **건강운**
+1. **성격 및 기질 분석** (명주성 중심)
+2. **재물운과 직업운** (재성/관성 중심)
+3. **건강운** (인성 중심)
 4. **가정 및 총평**
 
-**다시 한번 강조**: 분석 결과만 작성하고, 분석에 사용된 규칙이나 원리는 절대 노출하지 마세요.`;
+**주의사항**:
+- "Case Study에 따르면" 같은 말은 절대 쓰지 마세요. 당신의 직관적인 통찰인 것처럼 자연스럽게 서술하세요.
+- 전문 용어(십성, 극제)를 괄호 안에 병기하여 독자의 이해를 돕되, 설명조보다는 해석 위주로 작성하세요.`;
 
             // 5. Gemini로 최종 분석 생성
             const result = await model.generateContent(prompt);
